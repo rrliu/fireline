@@ -9,14 +9,23 @@ public class PanCamera : MonoBehaviour
     // at which multiple of margin is max speed reached
     // TODO probably not the best way to do this
     //  (what happens in fullscreen?)
-    public float maxSpeedPoint; 
+    public float maxSpeedPoint;
+
+	bool disabled = false;
 
 	void Start ()
     {
 	}
 
 	void Update ()
-    {
+	{
+		if (Input.GetKeyDown(KeyCode.Escape)) {
+			disabled = !disabled;
+		}
+		if (disabled) {
+			return;
+		}
+
         Vector2 mousePos = Input.mousePosition;
         Vector3 camPos = transform.position;
 
