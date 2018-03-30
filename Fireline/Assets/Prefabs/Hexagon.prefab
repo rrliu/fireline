@@ -20,6 +20,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4206750639802098}
   - component: {fileID: 212175186819465190}
+  - component: {fileID: 114197694545434418}
   m_Layer: 0
   m_Name: Hexagon
   m_TagString: Untagged
@@ -40,6 +41,18 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &114197694545434418
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1224019235040240}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38eb5798ea1054d63aa670f44ad0b226, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  selectRadius: 0.4
 --- !u!212 &212175186819465190
 SpriteRenderer:
   m_ObjectHideFlags: 1
