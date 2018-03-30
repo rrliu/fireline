@@ -13,6 +13,8 @@ public class HexGrid : MonoBehaviour {
 
 	[HideInInspector] public GameObject[,] tiles;
 
+	Vector2Int noSelection = new Vector2Int(-1, -1);
+	Vector2Int hovered;
 	Vector2Int selected;
 
 	enum TileType {
@@ -100,6 +102,7 @@ public class HexGrid : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
+		selected = noSelection;
 		tiles = new GameObject[width, height];
 		
 		float xMin = TileIndicesToPos(0, 0).x;
@@ -126,20 +129,49 @@ public class HexGrid : MonoBehaviour {
 	void Update () {
 		Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
 
-		GameObject selectedTile = tiles[selected.x, selected.y];
-		SpriteRenderer sr = selectedTile.GetComponent<SpriteRenderer>();
-		Color color = sr.color;
-		color.a = 1.0f;
-		sr.color = color;
+		if (hovered != selected) {
+			// Reset old hovered color
+			GameObject hoveredTile = tiles [hovered.x, hovered.y];
+			SpriteRenderer sr = hoveredTile.GetComponent<SpriteRenderer> ();
+			Color color = sr.color;
+			color.a = 1.0f;
+			sr.color = color;
+		}
 
-		selected = GetClosestTileIndex(mousePos);
-		Debug.Log (selected);
+		hovered = GetClosestTileIndex(mousePos);
 
+		if (hovered != selected) {
+			// Set new hovered color
+			GameObject hoveredTile = tiles [hovered.x, hovered.y];
+			SpriteRenderer sr = hoveredTile.GetComponent<SpriteRenderer> ();
+			Color color = sr.color;
+			color.a = 0.5f;
+			sr.color = color;
+		}
 
-		selectedTile = tiles[selected.x, selected.y];
-		sr = selectedTile.GetComponent<SpriteRenderer>();
-		color = sr.color;
-		color.a = 0.5f;
-		sr.color = color;
+		if (Input.GetMouseButtonDown (0)) {
+			Debug.Log ("mouse");
+			if (selected != noSelection) {
+				GameObject selectedTile = tiles[selected.x, selected.y];
+				SpriteRenderer sr = selectedTile.GetComponent<SpriteRenderer>();
+				Color color = sr.color;
+				color.a = 1.0f;
+				sr.color = color;
+			}
+
+			if (selected == hovered) {
+				selected = noSelection;
+			} else {
+				selected = hovered;
+			}
+
+			if (selected != noSelection) {
+				GameObject selectedTile = tiles[selected.x, selected.y];
+				SpriteRenderer sr = selectedTile.GetComponent<SpriteRenderer>();
+				Color color = sr.color;
+				color.a = 0.2f;
+				sr.color = color;
+			}
+		}
 	}
 }
