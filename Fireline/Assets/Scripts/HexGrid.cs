@@ -2,6 +2,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+public enum TileType {
+	GRASSLAND,
+	FOREST,
+	DENSEFOREST,
+	BURNT,
+	WATER
+}
+
 public class HexGrid : MonoBehaviour {
 	public GameObject hexagon;
 	public int width;
@@ -11,18 +19,25 @@ public class HexGrid : MonoBehaviour {
 
 	public Sprite[] tileSprites;
 
-	[HideInInspector] public GameObject[,] tiles;
+	public struct TileInfo {
+		public TileType type;
+		public GameObject gameObject;
+		public SpriteRenderer spriteRenderer;
+	};
+
+	[HideInInspector] public TileInfo[,] tiles;
 
 	Vector2Int noSelection = new Vector2Int(-1, -1);
 	Vector2Int hovered;
 	Vector2Int selected;
+	List<Vector2Int> neighbors = null;
 
-	enum TileType {
-		GRASSLAND,
-		FOREST,
-		DENSEFOREST,
-		BURNT,
-		WATER
+	void ClearTileColor(Vector2Int tile) {
+		tiles[tile.x, tile.y].spriteRenderer.color = Color.white;
+	}
+
+	void SetTileColor(Vector2Int tile, Color color) {
+		tiles[tile.x, tile.y].spriteRenderer.color = color;
 	}
 
 	Vector2 TileIndicesToPos(int i, int j) {
@@ -36,7 +51,7 @@ public class HexGrid : MonoBehaviour {
 	}
 
 	TileType HeightToTile(float height) {
-		if (height < 0.1f) {
+		if (height < 0.3f) {
 			return TileType.WATER;
 		}
 		if (height < 0.4f) {
@@ -47,6 +62,23 @@ public class HexGrid : MonoBehaviour {
 		}
 
 		return TileType.DENSEFOREST;
+	}
+
+	float GetTileWeight(TileType type) {
+		if (type == TileType.WATER) {
+			return 0.0f;
+		}
+		if (type == TileType.GRASSLAND) {
+			return 1.0f;
+		}
+		if (type == TileType.FOREST) {
+			return 1.5f;
+		}
+		if (type == TileType.DENSEFOREST) {
+			return 2.0f;
+		}
+
+		return 0.0f;
 	}
 
 	Vector2Int GetClosestTileIndex(Vector2 position) {
@@ -103,7 +135,7 @@ public class HexGrid : MonoBehaviour {
 	// Use this for initialization
 	void Start () {
 		selected = noSelection;
-		tiles = new GameObject[width, height];
+		tiles = new TileInfo[width, height];
 		
 		float xMin = TileIndicesToPos(0, 0).x;
 		float xMax = TileIndicesToPos(width - 1, 1).x;
@@ -120,7 +152,9 @@ public class HexGrid : MonoBehaviour {
                 TileType tileType = HeightToTile(height);
 				hexSprite.sprite = tileSprites[(int)tileType];
 
-				tiles[i, j] = hex;
+				tiles[i, j].type = tileType;
+				tiles[i, j].gameObject = hex;
+				tiles[i, j].spriteRenderer = hexSprite;
 			}
 		}
 	}
@@ -130,48 +164,135 @@ public class HexGrid : MonoBehaviour {
 		Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
 
 		if (hovered != selected) {
-			// Reset old hovered color
-			GameObject hoveredTile = tiles [hovered.x, hovered.y];
-			SpriteRenderer sr = hoveredTile.GetComponent<SpriteRenderer> ();
-			Color color = sr.color;
-			color.a = 1.0f;
-			sr.color = color;
+			ClearTileColor (hovered);
 		}
 
 		hovered = GetClosestTileIndex(mousePos);
 
-		if (hovered != selected) {
-			// Set new hovered color
-			GameObject hoveredTile = tiles [hovered.x, hovered.y];
-			SpriteRenderer sr = hoveredTile.GetComponent<SpriteRenderer> ();
-			Color color = sr.color;
-			color.a = 0.5f;
-			sr.color = color;
-		}
-
 		if (Input.GetMouseButtonDown (0)) {
-			Debug.Log ("mouse");
 			if (selected != noSelection) {
-				GameObject selectedTile = tiles[selected.x, selected.y];
-				SpriteRenderer sr = selectedTile.GetComponent<SpriteRenderer>();
-				Color color = sr.color;
-				color.a = 1.0f;
-				sr.color = color;
+				ClearTileColor(selected);
+				if (neighbors != null) {
+					foreach (Vector2Int tile in neighbors) {
+						ClearTileColor (tile);
+					}
+				}
 			}
 
-			if (selected == hovered) {
+			if (selected == hovered || tiles[hovered.x, hovered.y].type == TileType.WATER) {
+				// Clear selection
 				selected = noSelection;
+				neighbors.Clear();
 			} else {
 				selected = hovered;
 			}
 
 			if (selected != noSelection) {
-				GameObject selectedTile = tiles[selected.x, selected.y];
-				SpriteRenderer sr = selectedTile.GetComponent<SpriteRenderer>();
-				Color color = sr.color;
-				color.a = 0.2f;
-				sr.color = color;
+				neighbors = GetReachableTiles(selected, 4.0f);
+
+				SetTileColor(selected, Color.cyan);
 			}
 		}
+
+		if (neighbors != null) {
+			foreach (Vector2Int tile in neighbors) {
+				SetTileColor (tile, Color.magenta);
+			}
+		}
+
+		if (hovered != selected) {
+			if (tiles [hovered.x, hovered.y].type == TileType.WATER) {
+				SetTileColor (hovered, Color.red);
+			} else {
+				SetTileColor (hovered, Color.gray);
+			}
+		}
+	}
+
+	struct TileSearchInfo {
+		public Vector2Int coords;
+		public float dist;
+	}
+
+	Vector2Int[] GetNeighbors(Vector2Int node) {
+		Vector2Int[] result = new Vector2Int[6];
+		int i = node.x;
+		int j = node.y;
+		result [0].x = i - 1;
+		result [0].y = j;
+		result [1].x = i + 1;
+		result [1].y = j;
+		result [2].x = i;
+		result [2].y = j + 1;
+		result [3].x = i;
+		result [3].y = j - 1;
+		if (j % 2 == 0) {
+			result [4].x = i - 1;
+			result [4].y = j - 1;
+			result [5].x = i - 1;
+			result [5].y = j + 1;
+		} else {
+			result [4].x = i + 1;
+			result [4].y = j - 1;
+			result [5].x = i + 1;
+			result [5].y = j + 1;
+		}
+
+		if (i > 1 && i < (width - 1) && j > 1 && j < (height - 1)) {
+			return result;
+		}
+
+		List<int> indices = new List<int>();
+		for (int k = 0; k < 6; k++) {
+			if (result[k].x < 0  || result[k].x >= width
+				|| result[k].y < 0 || result[k].y >= height) {
+				indices.Add(k);
+			}
+		}
+		Vector2Int[] realResult = new Vector2Int[6 - indices.Count];
+		int count = 0;
+		for (int k = 0; k < 6; k++) {
+			if (!indices.Contains(k)) {
+				realResult[count] = result[k];
+				count++;
+			}
+		}
+
+		return realResult;
+	}
+
+	public List<Vector2Int> GetReachableTiles(Vector2Int start, float maxDist) {
+		Hashtable visited = new Hashtable ();
+		List<Vector2Int> output = new List<Vector2Int>();
+		TileSearchInfo root;
+		root.coords = start;
+		root.dist = 0.0f;
+
+		Queue<TileSearchInfo> queue = new Queue<TileSearchInfo>();
+		queue.Enqueue(root);
+		while (queue.Count > 0) {
+			TileSearchInfo current = queue.Dequeue();
+			if (!visited.ContainsKey (current.coords)) {
+				visited.Add(current.coords, true);
+				Vector2Int[] neighbors = GetNeighbors (current.coords);
+				if (current.dist <= maxDist) {
+					if (current.coords != start) {
+						output.Add (current.coords);
+					}
+					for (int i = 0; i < neighbors.Length; i++) {
+						TileInfo info = tiles[neighbors[i].x, neighbors[i].y];
+						float weight = GetTileWeight(info.type);
+						if (weight != 0.0f) {
+							TileSearchInfo newNode;
+							newNode.coords = neighbors[i];
+							newNode.dist = current.dist + weight;
+							queue.Enqueue(newNode);
+						}
+					}
+				}
+			}
+		}
+
+		return output;
 	}
 }
