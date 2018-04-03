@@ -3,13 +3,12 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class GeneratorScript : MonoBehaviour {
-
 	public Vector2Int start;
 	public int radius;
 
 	public Sprite rivers;
 	//public Sprite trees;
-	//public GameObject rivers;
+	public GameObject background;
 
 	Vector2 TileIndicesToPos(int i, int j) {
 		float xStride = Mathf.Sqrt(3.0f) / 2.0f;
@@ -21,7 +20,8 @@ public class GeneratorScript : MonoBehaviour {
 		return new Vector2(xOff + i * xStride, j * yStride);
 	}
 
-	bool[,] GenerateTiles(Sprite sprite, Vector2Int start, int radius) {
+	bool[,] GenerateTiles(Sprite sprite, Vector2Int start,
+    int radius, float avgThreshold) {
 		int width = sprite.texture.width;
 		int height = sprite.texture.height;
 		float xStride = Mathf.Sqrt(3.0f) * radius;
@@ -37,14 +37,15 @@ public class GeneratorScript : MonoBehaviour {
 			for (int j = 0; j < numY - 1; j++) {
 				int iPix = (int)(start.x + xStride * i);
 				if (j % 2 == 1) {
-					iPix += (int)xOff;
+					iPix = (int)(start.x + xOff + xStride * i);
 				}
 				int jPix = (int)(start.y + yStride * j);
 				int count = 0;
 				int total = 0;
-				for (int it = -searchRadius/2; it <= searchRadius/2; it++) {
-					for (int jr = -searchRadius/2; jr <= searchRadius/2; jr++) {
-						if ((it * it + jr * jr) <= searchRadius) {
+				for (int it = -searchRadius; it <= searchRadius; it++) {
+					for (int jr = -searchRadius; jr <= searchRadius; jr++) {
+						if ((it * it + jr * jr)
+                        <= searchRadius * searchRadius) {
 							total++;
 							Color pixColor = sprite.texture.GetPixel(iPix + it, jPix + jr);
 							if (pixColor.a > 0.0f) {
@@ -55,7 +56,7 @@ public class GeneratorScript : MonoBehaviour {
 				}
 				float avg = (float)count / total;
 				result [i, j] = false;
-				if (avg > 0.0f) {
+				if (avg > avgThreshold) {
 					result [i, j] = true;
 				}
 			}
@@ -66,10 +67,9 @@ public class GeneratorScript : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
-		//Sprite rivers = 
-		bool[,] isWater = GenerateTiles (rivers, start, radius);
-		int width = isWater.GetLength (0);
-		int height = isWater.GetLength (1);
+		bool[,] isWater = GenerateTiles(rivers, start, radius, 0.1f);
+		int width = isWater.GetLength(0);
+		int height = isWater.GetLength(1);
 
 		TileType[,] tileTypes = new TileType[width, height];
 		for (int i = 0; i < width; i++) {
@@ -84,6 +84,28 @@ public class GeneratorScript : MonoBehaviour {
 
 		HexGrid hexGrid = gameObject.GetComponent<HexGrid> ();
 		hexGrid.GenerateGrid (width, height, tileTypes);
+
+        int pixWidth = rivers.texture.width;
+        int pixHeight = rivers.texture.height;
+        //float error = 1.03f;
+        //error = 1.0f;
+        Vector3 backgroundScale = new Vector3(
+            //2.0f * radius / pixHeight * error,
+            //2.0f * radius / pixHeight * error,
+            1.0f / (2.0f * radius),
+            1.0f / (2.0f * radius),
+            1.0f
+        );
+        Vector3 backgroundPos = new Vector3(
+            -start.x * backgroundScale.x,
+            -start.y * backgroundScale.y,
+            0.0f
+        );
+        backgroundPos.x += pixWidth * backgroundScale.x / 2.0f;
+        backgroundPos.y += pixHeight * backgroundScale.y / 2.0f;
+        background.transform.position = backgroundPos;
+        background.transform.localScale = backgroundScale;
+        background.SetActive(true);
 	}
 	
 	// Update is called once per frame

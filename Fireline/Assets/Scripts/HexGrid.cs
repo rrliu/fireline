@@ -44,7 +44,7 @@ public class HexGrid : MonoBehaviour {
 		float xStride = Mathf.Sqrt(3.0f) / 2.0f;
 		float xOff = 0.0f;
 		if (j % 2 == 1) {
-			xOff += Mathf.Sqrt(3.0f) / 4.0f;
+			xOff += xStride / 2.0f;
 		}
 		float yStride = 3.0f / 4.0f;
 		return new Vector2(xOff + i * xStride, j * yStride);
@@ -135,11 +135,11 @@ public class HexGrid : MonoBehaviour {
 	// Use this for initialization
 	void Start () {
 		selected = noSelection;
-
-		//GenerateGrid (width, height, null);
 	}
 
 	public void GenerateGrid(int width, int height, TileType[,] tileTypes) {
+        Debug.Log("Generating grid: "
+            + width.ToString() + " x " + height.ToString());
 		this.width = width;
 		this.height = height;
 		tiles = new TileInfo[width, height];
@@ -190,7 +190,9 @@ public class HexGrid : MonoBehaviour {
 			if (selected == hovered || tiles[hovered.x, hovered.y].type == TileType.WATER) {
 				// Clear selection
 				selected = noSelection;
-				neighbors.Clear();
+                if (neighbors != null) {
+				    neighbors.Clear();
+                }
 			} else {
 				selected = hovered;
 			}

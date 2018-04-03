@@ -2,8 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class PanCamera : MonoBehaviour
-{
+public class PanCamera : MonoBehaviour {
     public float margin;
     public float maxSpeed;
     // at which multiple of margin is max speed reached
@@ -13,12 +12,10 @@ public class PanCamera : MonoBehaviour
 
 	bool disabled = false;
 
-	void Start ()
-    {
+	void Start () {
 	}
 
-	void Update ()
-	{
+	void Update () {
 		if (Input.GetKeyDown(KeyCode.Escape)) {
 			disabled = !disabled;
 		}
