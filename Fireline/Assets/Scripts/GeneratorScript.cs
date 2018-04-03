@@ -8,7 +8,8 @@ public class GeneratorScript : MonoBehaviour {
 	public int radius;
 
 	public Sprite rivers;
-	public Sprite trees;
+	//public Sprite trees;
+	//public GameObject rivers;
 
 	Vector2 TileIndicesToPos(int i, int j) {
 		float xStride = Mathf.Sqrt(3.0f) / 2.0f;
@@ -65,6 +66,7 @@ public class GeneratorScript : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
+		//Sprite rivers = 
 		bool[,] isWater = GenerateTiles (rivers, start, radius);
 		int width = isWater.GetLength (0);
 		int height = isWater.GetLength (1);
