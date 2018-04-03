@@ -2,16 +2,24 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[System.Serializable]
 public enum TileType {
 	GRASSLAND,
 	FOREST,
 	DENSEFOREST,
 	BURNT,
-	WATER
+	WATER,
+    NONE
+}
+
+public enum UnitType {
+    TEST,
+    NONE
 }
 
 public class HexGrid : MonoBehaviour {
 	public GameObject hexagon;
+	public GameObject[] units;
 	public int width;
 	public int height;
 
@@ -22,6 +30,8 @@ public class HexGrid : MonoBehaviour {
 	public struct TileInfo {
 		public TileType type;
 		public GameObject gameObject;
+        public UnitType unitType;
+        public GameObject unit;
 		public SpriteRenderer spriteRenderer;
 	};
 
@@ -137,24 +147,28 @@ public class HexGrid : MonoBehaviour {
 		selected = noSelection;
 	}
 
-	public void GenerateGrid(int width, int height, TileType[,] tileTypes) {
-        Debug.Log("Generating grid: "
-            + width.ToString() + " x " + height.ToString());
+	public void GenerateGrid(TileType[,] tileTypes) {
+        int width = tileTypes.GetLength(0);
+        int height = tileTypes.GetLength(1);
+
+        Debug.Log("Generating hex grid ("
+            + width.ToString() + "x" + height.ToString() + ")");
 		this.width = width;
 		this.height = height;
 		tiles = new TileInfo[width, height];
 
-		float xMin = TileIndicesToPos(0, 0).x;
+		/*float xMin = TileIndicesToPos(0, 0).x;
 		float xMax = TileIndicesToPos(width - 1, 1).x;
 		float yMin = TileIndicesToPos(0, 0).y;
-		float yMax = TileIndicesToPos(0, height - 1).y;
+		float yMax = TileIndicesToPos(0, height - 1).y;*/
 		for (int i = 0; i < width; i++) {
 			for (int j = 0; j < height; j++) {
 				Vector3 pos = TileIndicesToPos(i, j);
-				GameObject hex = Instantiate(hexagon, pos, Quaternion.identity, transform);
+				GameObject hex = Instantiate(hexagon,
+                    pos, Quaternion.identity, transform);
 				SpriteRenderer hexSprite = hex.GetComponent<SpriteRenderer>();
-				float xNorm = pos.x / (xMax - xMin) + xMin;
-				float yNorm = pos.y / (yMax - yMin) + yMin; // TODO bad!
+				//float xNorm = pos.x / (xMax - xMin) + xMin;
+				//float yNorm = pos.y / (yMax - yMin) + yMin; // TODO bad!
 				//float h = Mathf.PerlinNoise(xNorm * noiseScale, yNorm * noiseScale);
 				//TileType tileType = HeightToTile(h);
 				TileType tileType = tileTypes[i, j];
@@ -163,6 +177,17 @@ public class HexGrid : MonoBehaviour {
 				tiles[i, j].type = tileType;
 				tiles[i, j].gameObject = hex;
 				tiles[i, j].spriteRenderer = hexSprite;
+
+                tiles[i, j].unitType = UnitType.NONE;
+                tiles[i, j].unit = null;
+                if (tileType != TileType.WATER) {
+                    if (Random.Range(0.0f, 1.0f) < 0.1f) {
+                        GameObject unit = Instantiate(units[0],
+                            pos, Quaternion.identity, transform);
+                        tiles[i, j].unitType = UnitType.TEST;
+                        tiles[i, j].unit = unit;
+                    }
+                }
 			}
 		}
 	}
@@ -187,14 +212,18 @@ public class HexGrid : MonoBehaviour {
 				}
 			}
 
-			if (selected == hovered || tiles[hovered.x, hovered.y].type == TileType.WATER) {
+            // Conditions for selection to be possible
+            TileInfo hoveredTile = tiles[hovered.x, hovered.y];
+            if (selected != hovered
+            && hoveredTile.type != TileType.WATER
+            && hoveredTile.unitType != UnitType.NONE) {
+				selected = hovered;
+			} else {
 				// Clear selection
 				selected = noSelection;
                 if (neighbors != null) {
 				    neighbors.Clear();
                 }
-			} else {
-				selected = hovered;
 			}
 
 			if (selected != noSelection) {

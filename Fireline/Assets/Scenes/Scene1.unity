@@ -201,11 +201,11 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 10
+  m_SortingLayerID: 397326691
+  m_SortingLayer: 1
+  m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: 0761d01d5a3d045238b9a1464608f9a7, type: 3}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 0.391}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -256,6 +256,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   hexagon: {fileID: 1224019235040240, guid: 133bf3692dcb849999f2b4bad7e7bb6b, type: 2}
+  units:
+  - {fileID: 1008886686332874, guid: cf83a844cd432524ba1a5e87adbdeb15, type: 2}
   width: 300
   height: 200
   noiseScale: 50
@@ -290,9 +292,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   start: {x: 50, y: 50}
-  radius: 70
+  radius: 60
   rivers: {fileID: 21300000, guid: 0761d01d5a3d045238b9a1464608f9a7, type: 3}
   background: {fileID: 920722038}
+  cache: 1
 --- !u!1 &1419057818
 GameObject:
   m_ObjectHideFlags: 0
@@ -346,7 +349,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 20
+  orthographic size: 10
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2

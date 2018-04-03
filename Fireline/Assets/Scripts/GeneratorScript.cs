@@ -1,5 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
 
 public class GeneratorScript : MonoBehaviour {
@@ -9,6 +11,8 @@ public class GeneratorScript : MonoBehaviour {
 	public Sprite rivers;
 	//public Sprite trees;
 	public GameObject background;
+
+    public bool cache;
 
 	Vector2 TileIndicesToPos(int i, int j) {
 		float xStride = Mathf.Sqrt(3.0f) / 2.0f;
@@ -20,7 +24,7 @@ public class GeneratorScript : MonoBehaviour {
 		return new Vector2(xOff + i * xStride, j * yStride);
 	}
 
-	bool[,] GenerateTiles(Sprite sprite, Vector2Int start,
+	bool[,] GenerateSingleTileMask(Sprite sprite, Vector2Int start,
     int radius, float avgThreshold) {
 		int width = sprite.texture.width;
 		int height = sprite.texture.height;
@@ -65,9 +69,8 @@ public class GeneratorScript : MonoBehaviour {
 		return result;
 	}
 
-	// Use this for initialization
-	void Start () {
-		bool[,] isWater = GenerateTiles(rivers, start, radius, 0.1f);
+    TileType[,] GenerateTiles() {
+		bool[,] isWater = GenerateSingleTileMask(rivers, start, radius, 0.1f);
 		int width = isWater.GetLength(0);
 		int height = isWater.GetLength(1);
 
@@ -82,8 +85,43 @@ public class GeneratorScript : MonoBehaviour {
 			}
 		}
 
-		HexGrid hexGrid = gameObject.GetComponent<HexGrid> ();
-		hexGrid.GenerateGrid (width, height, tileTypes);
+        return tileTypes;
+    }
+
+    const string CACHE_PATH = "Assets/SaveData/tiles.data";
+    void CacheTiles(TileType[,] tileTypes) {
+        BinaryFormatter bf = new BinaryFormatter();
+        FileStream fs = File.Open(CACHE_PATH, FileMode.Create);
+        bf.Serialize(fs, tileTypes);
+        fs.Close();
+        Debug.Log("Cached tile info");
+    }
+    TileType[,] LoadTiles() {
+        BinaryFormatter bf = new BinaryFormatter();
+        FileStream fs = File.Open(CACHE_PATH, FileMode.Open);
+        TileType[,] tileTypes = (TileType[,])bf.Deserialize(fs);
+        fs.Close();
+
+        return tileTypes;
+    }
+
+	// Use this for initialization
+	void Start () {
+        TileType[,] tileTypes;
+        if (cache && File.Exists(CACHE_PATH)) {
+            tileTypes = LoadTiles();
+            Debug.Log("Loaded tile info from cache");
+        }
+        else {
+            tileTypes = GenerateTiles();
+            Debug.Log("Generated tile info");
+        }
+        if (cache) {
+            CacheTiles(tileTypes);
+        }
+
+		HexGrid hexGrid = gameObject.GetComponent<HexGrid>();
+		hexGrid.GenerateGrid (tileTypes);
 
         int pixWidth = rivers.texture.width;
         int pixHeight = rivers.texture.height;
