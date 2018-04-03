@@ -135,8 +135,15 @@ public class HexGrid : MonoBehaviour {
 	// Use this for initialization
 	void Start () {
 		selected = noSelection;
+
+		//GenerateGrid (width, height, null);
+	}
+
+	public void GenerateGrid(int width, int height, TileType[,] tileTypes) {
+		this.width = width;
+		this.height = height;
 		tiles = new TileInfo[width, height];
-		
+
 		float xMin = TileIndicesToPos(0, 0).x;
 		float xMax = TileIndicesToPos(width - 1, 1).x;
 		float yMin = TileIndicesToPos(0, 0).y;
@@ -145,11 +152,12 @@ public class HexGrid : MonoBehaviour {
 			for (int j = 0; j < height; j++) {
 				Vector3 pos = TileIndicesToPos(i, j);
 				GameObject hex = Instantiate(hexagon, pos, Quaternion.identity, transform);
-                SpriteRenderer hexSprite = hex.GetComponent<SpriteRenderer>();
-                float xNorm = pos.x / (xMax - xMin) + xMin;
-                float yNorm = pos.y / (yMax - yMin) + yMin; // TODO bad!
-                float height = Mathf.PerlinNoise(xNorm * noiseScale, yNorm * noiseScale);
-                TileType tileType = HeightToTile(height);
+				SpriteRenderer hexSprite = hex.GetComponent<SpriteRenderer>();
+				float xNorm = pos.x / (xMax - xMin) + xMin;
+				float yNorm = pos.y / (yMax - yMin) + yMin; // TODO bad!
+				//float h = Mathf.PerlinNoise(xNorm * noiseScale, yNorm * noiseScale);
+				//TileType tileType = HeightToTile(h);
+				TileType tileType = tileTypes[i, j];
 				hexSprite.sprite = tileSprites[(int)tileType];
 
 				tiles[i, j].type = tileType;
