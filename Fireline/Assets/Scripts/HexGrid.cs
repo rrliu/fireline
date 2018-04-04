@@ -19,6 +19,8 @@ public enum UnitType {
 
 public class HexGrid : MonoBehaviour {
 	public GameObject hexagon;
+	public GameObject fire;
+    public float fireSpreadChance;
 	public GameObject[] units;
 	public int width;
 	public int height;
@@ -30,13 +32,16 @@ public class HexGrid : MonoBehaviour {
 	public struct TileInfo {
 		public TileType type;
 		public GameObject gameObject;
+		public SpriteRenderer spriteRenderer;
         public UnitType unitType;
 		public UnitScript unitScript;
         public GameObject unit;
-		public SpriteRenderer spriteRenderer;
+        public bool onFire;
 	};
 
 	[HideInInspector] public TileInfo[,] tiles;
+
+    List<Vector2Int> onFire = new List<Vector2Int>();
 
 	Vector2Int noSelection = new Vector2Int(-1, -1);
 	Vector2Int hovered;
@@ -148,6 +153,25 @@ public class HexGrid : MonoBehaviour {
 		selected = noSelection;
 	}
 
+    void CreateUnitAt(Vector2Int tile) {
+        int i = tile.x, j = tile.y;
+		GameObject unit = Instantiate(units[0],
+			tiles[i, j].gameObject.transform.position,
+			Quaternion.identity, transform);
+		tiles[i, j].unitType = UnitType.TEST;
+		tiles[i, j].unit = unit;
+		tiles [i, j].unitScript = unit.GetComponent<UnitScript>();
+    }
+
+    void CreateFireAt(Vector2Int tile) {
+        int i = tile.x, j = tile.y;
+		Instantiate(fire,
+			tiles[i, j].gameObject.transform.position,
+			Quaternion.identity, transform);
+        onFire.Add(tile);
+        tiles[i, j].onFire = true;
+    }
+
 	public void GenerateGrid(TileType[,] tileTypes) {
         int width = tileTypes.GetLength(0);
         int height = tileTypes.GetLength(1);
@@ -182,42 +206,28 @@ public class HexGrid : MonoBehaviour {
                 tiles[i, j].unitType = UnitType.NONE;
                 tiles[i, j].unit = null;
 				tiles[i, j].unitScript = null;
+
+				tiles[i, j].onFire = false;
+                if (tileType == TileType.DENSEFOREST) {
+                    if (Random.Range(0.0f, 1.0f) < 0.05f) {
+                        CreateFireAt(new Vector2Int(i, j));
+                    }
+                }
                 /*if (tileType != TileType.WATER) {
                     if (Random.Range(0.0f, 1.0f) < 0.1f) {
-                        GameObject unit = Instantiate(units[0],
-                            pos, Quaternion.identity, transform);
-						tiles[i, j].unitType = UnitType.TEST;
-						tiles[i, j].unit = unit;
-						tiles [i, j].unitScript = unit.GetComponent<UnitScript> ();
+                        CreateUnitAt(new Vector2Int(i, j));
                     }
                 }*/
 			}
 		}
 
-		// TODO definitely factor this out
-		int it, jr;
-		GameObject unit2;
-		it = 11; jr = 37;
-		unit2 = Instantiate(units[0],
-			tiles[it, jr].gameObject.transform.position,
-			Quaternion.identity, transform);
-		tiles[it, jr].unitType = UnitType.TEST;
-		tiles[it, jr].unit = unit2;
-		tiles [it, jr].unitScript = unit2.GetComponent<UnitScript> ();
-		it = 12; jr = 37;
-		unit2 = Instantiate(units[0],
-			tiles[it, jr].gameObject.transform.position,
-			Quaternion.identity, transform);
-		tiles[it, jr].unitType = UnitType.TEST;
-		tiles[it, jr].unit = unit2;
-		tiles [it, jr].unitScript = unit2.GetComponent<UnitScript> ();
-		it = 12; jr = 38;
-		unit2 = Instantiate(units[0],
-			tiles[it, jr].gameObject.transform.position,
-			Quaternion.identity, transform);
-		tiles[it, jr].unitType = UnitType.TEST;
-		tiles[it, jr].unit = unit2;
-		tiles [it, jr].unitScript = unit2.GetComponent<UnitScript> ();
+        CreateUnitAt(new Vector2Int(11, 37));
+        CreateUnitAt(new Vector2Int(12, 37));
+        CreateUnitAt(new Vector2Int(12, 38));
+
+        CreateFireAt(new Vector2Int(11, 31));
+        CreateFireAt(new Vector2Int(40, 45));
+        CreateFireAt(new Vector2Int(46, 41));
 	}
 	
 	// Update is called once per frame
@@ -231,7 +241,7 @@ public class HexGrid : MonoBehaviour {
 		hovered = GetClosestTileIndex(mousePos);
 
 		if (Input.GetMouseButtonDown (0)) {
-			Debug.Log ("You clicked on: " + hovered.ToString());
+			Debug.Log("You clicked on: " + hovered.ToString());
 			if (selected != noSelection) {
 				ClearTileColor(selected);
 				if (neighbors != null) {
@@ -241,8 +251,8 @@ public class HexGrid : MonoBehaviour {
 				}
 			}
 
-			// Check if selection is in neighbors
 			if (neighbors != null) {
+			    // Check if selection is in neighbors
 				bool isNeighbor = false;
 				int ind = -1;
 				for (int i = 0; i < neighbors.Count; i++) {
@@ -253,10 +263,12 @@ public class HexGrid : MonoBehaviour {
 					}
 				}
 				if (isNeighbor) {
+                    // Determine whether the unit can move to the target tile
 					TileInfo unitTile = tiles [selected.x, selected.y];
 					Debug.Assert (unitTile.unitType != UnitType.NONE);
 					TileInfo targetTile = tiles [hovered.x, hovered.y];
-					if (targetTile.unitType == UnitType.NONE) {
+					if (targetTile.unitType == UnitType.NONE
+                    && !targetTile.onFire) {
 						unitTile.unitScript.rangeRemaining -= neighbors [ind].dist;
 						unitTile.unit.transform.position = targetTile.gameObject.transform.position;
 						tiles [hovered.x, hovered.y].unitType = unitTile.unitType;
@@ -376,8 +388,8 @@ public class HexGrid : MonoBehaviour {
 			TileNode current = queue.Dequeue();
 			if (!visited.ContainsKey (current.coords)) {
 				visited.Add(current.coords, true);
-				Vector2Int[] neighbors = GetNeighbors (current.coords);
 				if (current.dist <= maxDist) {
+				    Vector2Int[] neighbors = GetNeighbors(current.coords);
 					if (current.coords != start) {
 						// TODO there could be a shorter path...
 						output.Add (current);
@@ -398,4 +410,20 @@ public class HexGrid : MonoBehaviour {
 
 		return output;
 	}
+
+    public void SpreadFire() {
+        List<Vector2Int> onFirePrev = new List<Vector2Int>(onFire);
+        foreach (Vector2Int tile in onFirePrev) {
+            Vector2Int[] neighbors = GetNeighbors(tile);
+            for (int i = 0; i < neighbors.Length; i++) {
+                TileInfo neighborInfo = tiles[neighbors[i].x, neighbors[i].y];
+                if (!neighborInfo.onFire
+                && neighborInfo.type != TileType.WATER) {
+                    if (Random.Range(0.0f, 1.0f) < fireSpreadChance) {
+                        CreateFireAt(neighbors[i]);
+                    }
+                }
+            }
+        }
+    }
 }
