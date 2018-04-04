@@ -82,7 +82,7 @@ public class GeneratorScript : MonoBehaviour {
 					tileTypes [i, j] = TileType.WATER;
 				} else if (isForest [i, j]) {
 					tileTypes [i, j] = TileType.DENSEFOREST;
-				}else {
+				} else {
 					tileTypes [i, j] = TileType.GRASSLAND;
 				}
 			}
