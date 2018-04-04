@@ -9,7 +9,7 @@ public class GeneratorScript : MonoBehaviour {
 	public int radius;
 
 	public Sprite rivers;
-	//public Sprite trees;
+	public Sprite forests;
 	public GameObject background;
 
     public bool cache;
@@ -71,6 +71,7 @@ public class GeneratorScript : MonoBehaviour {
 
     TileType[,] GenerateTiles() {
 		bool[,] isWater = GenerateSingleTileMask(rivers, start, radius, 0.1f);
+		bool[,] isForest = GenerateSingleTileMask(forests, start, radius, 0.1f);
 		int width = isWater.GetLength(0);
 		int height = isWater.GetLength(1);
 
@@ -79,7 +80,9 @@ public class GeneratorScript : MonoBehaviour {
 			for (int j = 0; j < height; j++) {
 				if (isWater [i, j]) {
 					tileTypes [i, j] = TileType.WATER;
-				} else {
+				} else if (isForest [i, j]) {
+					tileTypes [i, j] = TileType.DENSEFOREST;
+				}else {
 					tileTypes [i, j] = TileType.GRASSLAND;
 				}
 			}
@@ -116,9 +119,7 @@ public class GeneratorScript : MonoBehaviour {
             tileTypes = GenerateTiles();
             Debug.Log("Generated tile info");
         }
-        if (cache) {
-            CacheTiles(tileTypes);
-        }
+        CacheTiles(tileTypes);
 
 		HexGrid hexGrid = gameObject.GetComponent<HexGrid>();
 		hexGrid.GenerateGrid (tileTypes);

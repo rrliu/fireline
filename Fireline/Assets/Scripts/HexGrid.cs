@@ -31,6 +31,7 @@ public class HexGrid : MonoBehaviour {
 		public TileType type;
 		public GameObject gameObject;
         public UnitType unitType;
+		public UnitScript unitScript;
         public GameObject unit;
 		public SpriteRenderer spriteRenderer;
 	};
@@ -40,7 +41,7 @@ public class HexGrid : MonoBehaviour {
 	Vector2Int noSelection = new Vector2Int(-1, -1);
 	Vector2Int hovered;
 	Vector2Int selected;
-	List<Vector2Int> neighbors = null;
+	List<TileNode> neighbors = null;
 
 	void ClearTileColor(Vector2Int tile) {
 		tiles[tile.x, tile.y].spriteRenderer.color = Color.white;
@@ -180,16 +181,43 @@ public class HexGrid : MonoBehaviour {
 
                 tiles[i, j].unitType = UnitType.NONE;
                 tiles[i, j].unit = null;
-                if (tileType != TileType.WATER) {
+				tiles[i, j].unitScript = null;
+                /*if (tileType != TileType.WATER) {
                     if (Random.Range(0.0f, 1.0f) < 0.1f) {
                         GameObject unit = Instantiate(units[0],
                             pos, Quaternion.identity, transform);
-                        tiles[i, j].unitType = UnitType.TEST;
-                        tiles[i, j].unit = unit;
+						tiles[i, j].unitType = UnitType.TEST;
+						tiles[i, j].unit = unit;
+						tiles [i, j].unitScript = unit.GetComponent<UnitScript> ();
                     }
-                }
+                }*/
 			}
 		}
+
+		// TODO definitely factor this out
+		int it, jr;
+		GameObject unit2;
+		it = 11; jr = 37;
+		unit2 = Instantiate(units[0],
+			tiles[it, jr].gameObject.transform.position,
+			Quaternion.identity, transform);
+		tiles[it, jr].unitType = UnitType.TEST;
+		tiles[it, jr].unit = unit2;
+		tiles [it, jr].unitScript = unit2.GetComponent<UnitScript> ();
+		it = 12; jr = 37;
+		unit2 = Instantiate(units[0],
+			tiles[it, jr].gameObject.transform.position,
+			Quaternion.identity, transform);
+		tiles[it, jr].unitType = UnitType.TEST;
+		tiles[it, jr].unit = unit2;
+		tiles [it, jr].unitScript = unit2.GetComponent<UnitScript> ();
+		it = 12; jr = 38;
+		unit2 = Instantiate(units[0],
+			tiles[it, jr].gameObject.transform.position,
+			Quaternion.identity, transform);
+		tiles[it, jr].unitType = UnitType.TEST;
+		tiles[it, jr].unit = unit2;
+		tiles [it, jr].unitScript = unit2.GetComponent<UnitScript> ();
 	}
 	
 	// Update is called once per frame
@@ -203,11 +231,40 @@ public class HexGrid : MonoBehaviour {
 		hovered = GetClosestTileIndex(mousePos);
 
 		if (Input.GetMouseButtonDown (0)) {
+			Debug.Log ("You clicked on: " + hovered.ToString());
 			if (selected != noSelection) {
 				ClearTileColor(selected);
 				if (neighbors != null) {
-					foreach (Vector2Int tile in neighbors) {
-						ClearTileColor (tile);
+					foreach (TileNode tile in neighbors) {
+						ClearTileColor (tile.coords);
+					}
+				}
+			}
+
+			// Check if selection is in neighbors
+			if (neighbors != null) {
+				bool isNeighbor = false;
+				int ind = -1;
+				for (int i = 0; i < neighbors.Count; i++) {
+					if (neighbors[i].coords == hovered) {
+						isNeighbor = true;
+						ind = i;
+						break;
+					}
+				}
+				if (isNeighbor) {
+					TileInfo unitTile = tiles [selected.x, selected.y];
+					Debug.Assert (unitTile.unitType != UnitType.NONE);
+					TileInfo targetTile = tiles [hovered.x, hovered.y];
+					if (targetTile.unitType == UnitType.NONE) {
+						unitTile.unitScript.rangeRemaining -= neighbors [ind].dist;
+						unitTile.unit.transform.position = targetTile.gameObject.transform.position;
+						tiles [hovered.x, hovered.y].unitType = unitTile.unitType;
+						tiles [hovered.x, hovered.y].unitScript = unitTile.unitScript;
+						tiles [hovered.x, hovered.y].unit = unitTile.unit;
+						tiles [selected.x, selected.y].unitType = UnitType.NONE;
+						tiles [selected.x, selected.y].unitScript = null;
+						tiles [selected.x, selected.y].unit = null;
 					}
 				}
 			}
@@ -227,15 +284,21 @@ public class HexGrid : MonoBehaviour {
 			}
 
 			if (selected != noSelection) {
-				neighbors = GetReachableTiles(selected, 4.0f);
+				TileInfo unitTile = tiles [selected.x, selected.y];
+				float range = unitTile.unitScript.rangeRemaining;
+				if (range > 0.0f) {
+					neighbors = GetReachableTiles (selected, range);
+				} else {
+					neighbors = null;
+				}
 
 				SetTileColor(selected, Color.cyan);
 			}
 		}
 
 		if (neighbors != null) {
-			foreach (Vector2Int tile in neighbors) {
-				SetTileColor (tile, Color.magenta);
+			foreach (TileNode tile in neighbors) {
+				SetTileColor (tile.coords, Color.magenta);
 			}
 		}
 
@@ -248,7 +311,7 @@ public class HexGrid : MonoBehaviour {
 		}
 	}
 
-	struct TileSearchInfo {
+	public struct TileNode {
 		public Vector2Int coords;
 		public float dist;
 	}
@@ -300,29 +363,30 @@ public class HexGrid : MonoBehaviour {
 		return realResult;
 	}
 
-	public List<Vector2Int> GetReachableTiles(Vector2Int start, float maxDist) {
+	public List<TileNode> GetReachableTiles(Vector2Int start, float maxDist) {
 		Hashtable visited = new Hashtable ();
-		List<Vector2Int> output = new List<Vector2Int>();
-		TileSearchInfo root;
+		List<TileNode> output = new List<TileNode>();
+		TileNode root;
 		root.coords = start;
 		root.dist = 0.0f;
 
-		Queue<TileSearchInfo> queue = new Queue<TileSearchInfo>();
+		Queue<TileNode> queue = new Queue<TileNode>();
 		queue.Enqueue(root);
 		while (queue.Count > 0) {
-			TileSearchInfo current = queue.Dequeue();
+			TileNode current = queue.Dequeue();
 			if (!visited.ContainsKey (current.coords)) {
 				visited.Add(current.coords, true);
 				Vector2Int[] neighbors = GetNeighbors (current.coords);
 				if (current.dist <= maxDist) {
 					if (current.coords != start) {
-						output.Add (current.coords);
+						// TODO there could be a shorter path...
+						output.Add (current);
 					}
 					for (int i = 0; i < neighbors.Length; i++) {
 						TileInfo info = tiles[neighbors[i].x, neighbors[i].y];
 						float weight = GetTileWeight(info.type);
 						if (weight != 0.0f) {
-							TileSearchInfo newNode;
+							TileNode newNode;
 							newNode.coords = neighbors[i];
 							newNode.dist = current.dist + weight;
 							queue.Enqueue(newNode);
