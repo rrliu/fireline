@@ -13,36 +13,45 @@ public enum TileType {
     NONE
 }
 
-public enum UnitType {
-    TEST,
-    NONE
-}
-
+[RequireComponent(typeof(TurnScript))]
 public class HexGrid : MonoBehaviour {
-	public GameObject hexagon;
-	public GameObject fire;
+	public GameObject hexPrefab;
+	public GameObject firePrefab;
     public float fireSpreadChance;
-	public GameObject[] units;
-	public int width;
-	public int height;
-
-	public float noiseScale;
-
 	public Sprite[] tileSprites;
+	public GameObject[] unitPrefabs;
+
+    public Color hoveredColor;
+    public Color selectedColor;
+    public Color neighborsColor;
+    public Color digNextColor;
+    public Color digNextFocusColor;
+    public Color digLaterColor;
+    public Color digLaterFocusColor;
+
+    public Animator deathSplat;
 
 	public struct TileInfo {
+        // Should all be set once, during initialization
 		public TileType type;
 		public GameObject gameObject;
 		public SpriteRenderer spriteRenderer;
-        public UnitType unitType;
-		public UnitScript unitScript;
+
+        // null if no unit
         public GameObject unit;
-        public bool onFire;
+		public UnitScript unitScript;
+
+        // null if no fire
+        public GameObject fire;
+        public FireScript fireScript;
 	};
 
 	[HideInInspector] public TileInfo[,] tiles;
-
+    int width, height;
+    List<Vector2Int> unitTiles = new List<Vector2Int>();
     List<Vector2Int> onFire = new List<Vector2Int>();
+
+    TurnScript turnScript;
 
 	Vector2Int noSelection = new Vector2Int(-1, -1);
 	Vector2Int selected;
@@ -51,17 +60,43 @@ public class HexGrid : MonoBehaviour {
 	void ClearTileColors() {
 		for (int i = 0; i < width; i++) {
 			for (int j = 0; j < height; j++) {
-				tiles [i, j].spriteRenderer.color = Color.white;
+				tiles[i, j].spriteRenderer.color = Color.white;
 			}
 		}
 	}
 	void ClearTileColor(Vector2Int tile) {
+        DebugValidateTileIndex(tile);
 		tiles[tile.x, tile.y].spriteRenderer.color = Color.white;
 	}
 
 	void SetTileColor(Vector2Int tile, Color color) {
+        DebugValidateTileIndex(tile);
 		tiles[tile.x, tile.y].spriteRenderer.color = color;
 	}
+
+	void MultiplyTileColor(Vector2Int tile, Color color) {
+        DebugValidateTileIndex(tile);
+		tiles[tile.x, tile.y].spriteRenderer.color *= color;
+	}
+
+    void DebugValidateTileIndex(Vector2Int tileInd) {
+        Debug.Assert(0 <= tileInd.x && tileInd.x < width
+            && 0 <= tileInd.y && tileInd.y < height);
+    }
+
+    // Returns the index of the given tile in the neighbors list,
+    // or -1 if it's not in the list.
+    int GetIndexInNeighbors(Vector2Int tile) {
+        DebugValidateTileIndex(tile);
+        int ind = -1;
+        for (int i = 0; i < neighbors.Count; i++) {
+            if (neighbors[i].coords == tile) {
+                ind = i;
+                break;
+            }
+        }
+        return ind;
+    }
 
 	Vector2 TileIndicesToPos(int i, int j) {
 		float xStride = Mathf.Sqrt(3.0f) / 2.0f;
@@ -73,26 +108,17 @@ public class HexGrid : MonoBehaviour {
 		return new Vector2(xOff + i * xStride, j * yStride);
 	}
 
-	TileType HeightToTile(float height) {
-		if (height < 0.3f) {
-			return TileType.WATER;
-		}
-		if (height < 0.4f) {
-			return TileType.GRASSLAND;
-		}
-		if (height < 0.7f) {
-			return TileType.FOREST;
-		}
-
-		return TileType.DENSEFOREST;
-	}
-
 	float GetTileWeight(TileType type) {
 		if (type == TileType.WATER) {
 			return 0.0f;
 		}
-		if (type == TileType.GRASSLAND
-		|| type == TileType.FIRELINE) {
+		if (type == TileType.GRASSLAND) {
+            return 1.0f;
+        }
+		if (type == TileType.FIRELINE) {
+            return 1.0f;
+        }
+        if (type == TileType.BURNT) {
 			return 1.0f;
 		}
 		if (type == TileType.FOREST) {
@@ -106,6 +132,8 @@ public class HexGrid : MonoBehaviour {
 		return 0.0f;
 	}
 
+    // Get the index of the tile closest to the given world position.
+    // Snaps to the edges of the hex grid if out of bounds.
 	Vector2Int GetClosestTileIndex(Vector2 position) {
 		float xStride = Mathf.Sqrt(3.0f) / 2.0f;
 		float yStride = 3.0f / 4.0f;
@@ -159,26 +187,78 @@ public class HexGrid : MonoBehaviour {
 
 	// Use this for initialization
 	void Start () {
+        turnScript = GetComponent<TurnScript>();
 		selected = noSelection;
 	}
 
-    void CreateUnitAt(Vector2Int tile) {
+    public void ChangeTileTypeAt(Vector2Int tile, TileType newType) {
+        DebugValidateTileIndex(tile);
         int i = tile.x, j = tile.y;
-		GameObject unit = Instantiate(units[0],
-			tiles[i, j].gameObject.transform.position,
-			Quaternion.identity, transform);
-		tiles[i, j].unitType = UnitType.TEST;
-		tiles[i, j].unit = unit;
-		tiles [i, j].unitScript = unit.GetComponent<UnitScript>();
+        tiles[i, j].type = newType;
+        tiles[i, j].spriteRenderer.sprite = tileSprites[(int)newType];
     }
 
-    void CreateFireAt(Vector2Int tile) {
+    public void CreateUnitAt(Vector2Int tile) {
+        DebugValidateTileIndex(tile);
         int i = tile.x, j = tile.y;
-		Instantiate(fire,
+		GameObject unit = Instantiate(unitPrefabs[0],
 			tiles[i, j].gameObject.transform.position,
 			Quaternion.identity, transform);
+		tiles[i, j].unit = unit;
+		tiles[i, j].unitScript = unit.GetComponent<UnitScript>();
+        tiles[i, j].unitScript.tile = tile;
+        unitTiles.Add(tile);
+    }
+
+    // From unit from one tile to another, and subtract dist from
+    // the unit's remaining "actions" or range
+    public void MoveUnit(Vector2Int from, Vector2Int to, float dist) {
+        DebugValidateTileIndex(from);
+        DebugValidateTileIndex(to);
+        Debug.Assert(tiles[from.x, from.y].unit != null);
+        Debug.Assert(tiles[to.x, to.y].unit == null);
+        // Move the unit
+        tiles[from.x, from.y].unitScript.rangeRemaining -= dist;
+        tiles[from.x, from.y].unit.transform.position =
+            tiles[to.x, to.y].gameObject.transform.position;
+        tiles[to.x, to.y].unit = tiles[from.x, from.y].unit;
+        tiles[to.x, to.y].unitScript = tiles[from.x, from.y].unitScript;
+        tiles[to.x, to.y].unitScript.tile = to;
+        tiles[from.x, from.y].unit = null;
+        tiles[from.x, from.y].unitScript = null;
+        unitTiles.Remove(from);
+        unitTiles.Add(to);
+    }
+
+    public void KillUnitAt(Vector2Int tile) {
+        DebugValidateTileIndex(tile);
+        int i = tile.x, j = tile.y;
+        Debug.Assert(tiles[i, j].unit != null);
+        Destroy(tiles[i, j].unit);
+        tiles[i, j].unit = null;
+        unitTiles.Remove(tile);
+    }
+
+    public void CreateFireAt(Vector2Int tile) {
+        DebugValidateTileIndex(tile);
+        int i = tile.x, j = tile.y;
+		GameObject fire = Instantiate(firePrefab,
+			tiles[i, j].gameObject.transform.position,
+			Quaternion.identity, transform);
+        tiles[i, j].fire = fire;
+        tiles[i, j].fireScript = fire.GetComponent<FireScript>();
         onFire.Add(tile);
-        tiles[i, j].onFire = true;
+    }
+
+    public void PutOutFireIfExistsAt(Vector2Int tile) {
+        DebugValidateTileIndex(tile);
+        int i = tile.x, j = tile.y;
+        if (tiles[i, j].fire != null) {
+            ChangeTileTypeAt(tile, TileType.BURNT);
+            Destroy(tiles[i, j].fire);
+            tiles[i, j].fire = null;
+            onFire.Remove(tile);
+        }
     }
 
 	public void GenerateGrid(TileType[,] tileTypes) {
@@ -191,20 +271,12 @@ public class HexGrid : MonoBehaviour {
 		this.height = height;
 		tiles = new TileInfo[width, height];
 
-		/*float xMin = TileIndicesToPos(0, 0).x;
-		float xMax = TileIndicesToPos(width - 1, 1).x;
-		float yMin = TileIndicesToPos(0, 0).y;
-		float yMax = TileIndicesToPos(0, height - 1).y;*/
 		for (int i = 0; i < width; i++) {
 			for (int j = 0; j < height; j++) {
 				Vector3 pos = TileIndicesToPos(i, j);
-				GameObject hex = Instantiate(hexagon,
+				GameObject hex = Instantiate(hexPrefab,
                     pos, Quaternion.identity, transform);
 				SpriteRenderer hexSprite = hex.GetComponent<SpriteRenderer>();
-				//float xNorm = pos.x / (xMax - xMin) + xMin;
-				//float yNorm = pos.y / (yMax - yMin) + yMin; // TODO bad!
-				//float h = Mathf.PerlinNoise(xNorm * noiseScale, yNorm * noiseScale);
-				//TileType tileType = HeightToTile(h);
 				TileType tileType = tileTypes[i, j];
 				hexSprite.sprite = tileSprites[(int)tileType];
 
@@ -212,11 +284,8 @@ public class HexGrid : MonoBehaviour {
 				tiles[i, j].gameObject = hex;
 				tiles[i, j].spriteRenderer = hexSprite;
 
-                tiles[i, j].unitType = UnitType.NONE;
                 tiles[i, j].unit = null;
-				tiles[i, j].unitScript = null;
-
-				tiles[i, j].onFire = false;
+				tiles[i, j].fire = null;
                 if (tileType == TileType.DENSEFOREST) {
                     if (Random.Range(0.0f, 1.0f) < 0.05f) {
                         CreateFireAt(new Vector2Int(i, j));
@@ -247,24 +316,24 @@ public class HexGrid : MonoBehaviour {
 		Vector2Int[] result = new Vector2Int[6];
 		int i = node.x;
 		int j = node.y;
-		result [0].x = i - 1;
-		result [0].y = j;
-		result [1].x = i + 1;
-		result [1].y = j;
-		result [2].x = i;
-		result [2].y = j + 1;
-		result [3].x = i;
-		result [3].y = j - 1;
+		result[0].x = i - 1;
+		result[0].y = j;
+		result[1].x = i + 1;
+		result[1].y = j;
+		result[2].x = i;
+		result[2].y = j + 1;
+		result[3].x = i;
+		result[3].y = j - 1;
 		if (j % 2 == 0) {
-			result [4].x = i - 1;
-			result [4].y = j - 1;
-			result [5].x = i - 1;
-			result [5].y = j + 1;
+			result[4].x = i - 1;
+			result[4].y = j - 1;
+			result[5].x = i - 1;
+			result[5].y = j + 1;
 		} else {
-			result [4].x = i + 1;
-			result [4].y = j - 1;
-			result [5].x = i + 1;
-			result [5].y = j + 1;
+			result[4].x = i + 1;
+			result[4].y = j - 1;
+			result[5].x = i + 1;
+			result[5].y = j + 1;
 		}
 
 		if (i > 1 && i < (width - 1) && j > 1 && j < (height - 1)) {
@@ -301,24 +370,24 @@ public class HexGrid : MonoBehaviour {
 		while (queue.Count > 0) {
 			TileNode current = queue.Dequeue();
 			if (current.dist <= maxDist) {
-				if (!visited.ContainsKey (current.coords)) {
+				if (!visited.ContainsKey(current.coords)) {
 					// Not visited
-					visited.Add (current.coords, current.dist);
+					visited.Add(current.coords, current.dist);
 				} else {
 					// Already visited
 					if (current.dist < (float)visited[current.coords]) {
 						visited[current.coords] = current.dist;
 					}
 				}
-				Vector2Int[] neighbors = GetNeighbors (current.coords);
+				Vector2Int[] neighbors = GetNeighbors(current.coords);
 				for (int i = 0; i < neighbors.Length; i++) {
-					TileInfo info = tiles [neighbors [i].x, neighbors [i].y];
-					float weight = GetTileWeight (info.type);
+					TileInfo info = tiles [neighbors[i].x, neighbors[i].y];
+					float weight = GetTileWeight(info.type);
 					if (weight != 0.0f) {
 						TileNode newNode;
-						newNode.coords = neighbors [i];
+						newNode.coords = neighbors[i];
 						newNode.dist = current.dist + weight;
-						queue.Enqueue (newNode);
+						queue.Enqueue(newNode);
 					}
 				}
 			}
@@ -337,132 +406,216 @@ public class HexGrid : MonoBehaviour {
 		return output;
 	}
 
+    public IEnumerator ExecuteUnitCommands() {
+        List<Vector2Int> oldUnitTiles = new List<Vector2Int>(unitTiles);
+        foreach (Vector2Int tile in oldUnitTiles) {
+            Vector2Int unitTile = tile;
+            UnitScript unitScript = tiles[tile.x, tile.y].unitScript;
+            foreach (UnitCommand cmd in unitScript.nextCommands) {
+                if (cmd.type == UnitCommandType.MOVE) {
+                    MoveUnit(unitTile, cmd.target, 0.0f);
+                    unitTile = cmd.target;
+                }
+                else if (cmd.type == UnitCommandType.DIG) {
+                    MoveUnit(unitTile, cmd.target, 0.0f);
+                    unitTile = cmd.target;
+                    ChangeTileTypeAt(cmd.target, TileType.FIRELINE);
+                }
+
+                yield return new WaitForSeconds(0.3f);
+            }
+            
+            foreach (UnitCommand cmd in unitScript.nextCommands) {
+                unitScript.commands.Remove(cmd);
+            }
+            unitScript.UpdateCommandList();
+        }
+
+        turnScript.doneWithUnits = true;
+    }
+
+    public void AgeFire() {
+        List<Vector2Int> firesToRemove = new List<Vector2Int>();
+        foreach (Vector2Int tile in onFire) {
+            int i = tile.x, j = tile.y;
+            tiles[i, j].fireScript.life -= 1;
+            if (tiles[i, j].fireScript.life <= 0) {
+                firesToRemove.Add(tile);
+            }
+        }
+
+        foreach (Vector2Int tile in firesToRemove) {
+            PutOutFireIfExistsAt(tile);
+        }
+    }
+
     public void SpreadFire() {
         List<Vector2Int> onFirePrev = new List<Vector2Int>(onFire);
         foreach (Vector2Int tile in onFirePrev) {
             Vector2Int[] neighbors = GetNeighbors(tile);
             for (int i = 0; i < neighbors.Length; i++) {
                 TileInfo neighborInfo = tiles[neighbors[i].x, neighbors[i].y];
-                if (!neighborInfo.onFire
+                if (neighborInfo.fire == null
                 && neighborInfo.type != TileType.WATER
-				&& neighborInfo.type != TileType.FIRELINE) {
+				&& neighborInfo.type != TileType.FIRELINE
+                && neighborInfo.type != TileType.BURNT) {
                     if (Random.Range(0.0f, 1.0f) < fireSpreadChance) {
                         CreateFireAt(neighbors[i]);
                     }
                 }
             }
         }
+
+        List<Vector2Int> deadUnitTiles = new List<Vector2Int>();
+        foreach (Vector2Int tile in unitTiles) {
+            if (tiles[tile.x, tile.y].fire != null) {
+                deadUnitTiles.Add(tile);
+            }
+        }
+
+        foreach (Vector2Int tile in deadUnitTiles) {
+            KillUnitAt(tile);
+            deathSplat.SetTrigger("splat");
+        }
     }
 
 	// Update is called once per frame
-	void Update () {
-		Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-
-		// Clear all tile colors. If you want a tile to stay colored, you must set it every frame
+	void Update() {
+		// Clear all tile colors.
+        // If you want a tile to stay colored, you must set it every frame
 		ClearTileColors();
 
+		Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
 		Vector2Int hovered = GetClosestTileIndex(mousePos);
 
-		// Click event
-		if (Input.GetMouseButtonDown (0)) {
-			//Debug.Log("You clicked on: " + hovered.ToString());
-			//Debug.Log ("Type: " + tiles [hovered.x, hovered.y].type.ToString ());
+        if (turnScript.playerTurn) {
+            // Click event
+            if (Input.GetMouseButtonDown(0)) {
+                /*Debug.Log("You clicked on: " + hovered.ToString());
+                Debug.Log ("Type: "
+                    + tiles [hovered.x, hovered.y].type.ToString ());*/
 
-			// Did the player try to move a unit?
-			if (selected != noSelection
-			&& tiles[selected.x, selected.y].unitType != UnitType.NONE
-			&& neighbors != null) {
-				// Check if selection is in neighbors
-				bool isNeighbor = false;
-				int ind = -1;
-				for (int i = 0; i < neighbors.Count; i++) {
-					if (neighbors[i].coords == hovered) {
-						isNeighbor = true;
-						ind = i;
-						break;
-					}
-				}
-				if (isNeighbor) {
-					// Determine whether the unit can move to the target tile
-					TileInfo unitTile = tiles [selected.x, selected.y];
-					TileInfo targetTile = tiles [hovered.x, hovered.y];
-					if (targetTile.unitType == UnitType.NONE
-					&& !targetTile.onFire) {
-						// Move the unit
-						Debug.Log("Moved");
-						Debug.Log(unitTile.unitScript.rangeRemaining);
-						unitTile.unitScript.rangeRemaining -= neighbors [ind].dist;
-						Debug.Log(unitTile.unitScript.rangeRemaining);
-						unitTile.unit.transform.position = targetTile.gameObject.transform.position;
-						tiles [hovered.x, hovered.y].unitType = unitTile.unitType;
-						tiles [hovered.x, hovered.y].unitScript = unitTile.unitScript;
-						tiles [hovered.x, hovered.y].unit = unitTile.unit;
-						tiles [selected.x, selected.y].unitType = UnitType.NONE;
-						tiles [selected.x, selected.y].unitScript = null;
-						tiles [selected.x, selected.y].unit = null;
-					}
-				}
-			}
+                // Did the player try to move a unit?
+                if (selected != noSelection
+                && tiles[selected.x, selected.y].unit != null
+                && neighbors != null) {
+                    // Check if selection is in neighbors
+                    int ind = GetIndexInNeighbors(hovered);
+                    if (ind != -1) {
+                        // Determine whether the unit can move to the target tile
+                        if (tiles[hovered.x, hovered.y].unit == null
+                        && tiles[hovered.x, hovered.y].fire == null) {
+                            // Move the unit
+                            //MoveUnit(selected, hovered, neighbors[ind].dist);
+                        }
+                    }
+                }
 
-			// Conditions for selection to be possible
-			TileInfo hoveredTile = tiles[hovered.x, hovered.y];
-			if (selected != hovered
-			&& hoveredTile.type != TileType.WATER
-			&& hoveredTile.unitType != UnitType.NONE) {
-				// Select hovered tile
-				selected = hovered;
-				TileInfo selectedTile = tiles [selected.x, selected.y];
-				Debug.Log("Selected");
-				Debug.Log(selectedTile.unitScript.rangeRemaining);
-				float range = selectedTile.unitScript.rangeRemaining;
-				if (range > 0.0f) {
-					neighbors = GetReachableTiles (selected, range);
-				} else {
-					neighbors = null;
-				}
-			} else {
-				// Clear selection
-				selected = noSelection;
-				if (neighbors != null) {
-					neighbors = null;
-				}
-			}
-		}
+                // Conditions for selection to be possible
+                TileInfo hoveredTile = tiles[hovered.x, hovered.y];
+                if (selected != hovered
+                && hoveredTile.type != TileType.WATER
+                && hoveredTile.unit != null) {
+                    // Select hovered tile
+                    selected = hovered;
+                    TileInfo selectedTile = tiles[selected.x, selected.y];
+                    float range = selectedTile.unitScript.rangeRemaining;
+                    if (range > 0.0f) {
+                        neighbors = GetReachableTiles(selected, range);
+                    } else {
+                        neighbors = null;
+                    }
+                } else {
+                    // Clear selection
+                    selected = noSelection;
+                    if (neighbors != null) {
+                        neighbors = null;
+                    }
+                }
+            }
+            else if (Input.GetMouseButton(1)) {
+                // Did the player try to dig?
+                if (selected != noSelection
+                && tiles[selected.x, selected.y].unit != null
+                && neighbors != null) {
+                    // Determine whether the unit can move to the target tile
+                    TileInfo unitTile = tiles[selected.x, selected.y];
+                    TileInfo targetTile = tiles[hovered.x, hovered.y];
+                    if (targetTile.unit == null
+                    && targetTile.fire == null
+                    && targetTile.type != TileType.WATER) {
+                        UnitCommand digCommand;
+                        digCommand.type = UnitCommandType.DIG;
+                        digCommand.target = hovered;
+                        unitTile.unitScript.AddCommandIfNew(digCommand);
+                    }
+                }
+            }
 
-		if (Input.GetKeyDown (KeyCode.D)) {
-			if (selected != noSelection) {
-				TileInfo selectedTile = tiles [selected.x, selected.y];
-				if (selectedTile.unitType != UnitType.NONE
-				&& selectedTile.type != TileType.FIRELINE) {
-					tiles[selected.x, selected.y].spriteRenderer.sprite = tileSprites[(int)TileType.FIRELINE];
-					tiles [selected.x, selected.y].type = TileType.FIRELINE;
-					// TODO fix: you can dig after using all your movement
-					float range = tiles [selected.x, selected.y].unitScript.rangeRemaining;
-					if (range >= 1.0f) {
-						tiles [selected.x, selected.y].unitScript.rangeRemaining -= 1.0f;
-						neighbors = GetReachableTiles (selected, range - 1.0f);
-					}
-				}
-			}
-		}
+            if (Input.GetKeyDown(KeyCode.Escape)) {
+                // Did the player try to clear the selected unit's commands?
+                if (selected != noSelection
+                && tiles[selected.x, selected.y].unit) {
+                    tiles[selected.x, selected.y].unitScript.ClearCommands();
+                }
+            }
 
-		// Paint all tiles we want to paint, in order!
-		if (neighbors != null) {
-			foreach (TileNode tile in neighbors) {
-				SetTileColor (tile.coords, Color.magenta);
-			}
-		}
-		SetTileColor (hovered, Color.gray);
+            // Old dig method
+            /*if (Input.GetKeyDown(KeyCode.D)) {
+                if (selected != noSelection) {
+                    TileInfo selectedTile = tiles [selected.x, selected.y];
+                    if (selectedTile.unit != null
+                    && selectedTile.type != TileType.FIRELINE) {
+                        ChangeTileTypeAt(selected, TileType.FIRELINE);
+                        // TODO fix: you can dig after using all your movement
+                        float range = tiles[selected.x, selected.y]
+                            .unitScript.rangeRemaining;
+                        if (range >= 1.0f) {
+                            tiles[selected.x, selected.y]
+                                .unitScript.rangeRemaining -= 1.0f;
+                            neighbors = GetReachableTiles(selected, range - 1.0f);
+                        }
+                    }
+                }
+            }*/
+
+            // Paint all tiles we want to paint, in order
+            if (neighbors != null) {
+                foreach (TileNode tile in neighbors) {
+                    SetTileColor(tile.coords, neighborsColor);
+                }
+            }
+        }
+
+        foreach (Vector2Int unitTile in unitTiles) {
+            UnitScript unitScript = tiles[unitTile.x, unitTile.y].unitScript;
+            foreach (UnitCommand cmd in unitScript.commands) {
+                SetTileColor(cmd.target, digLaterColor);
+            }
+            foreach (UnitCommand cmd in unitScript.nextCommands) {
+                SetTileColor(cmd.target, digNextColor);
+            }
+        }
+        if (selected != noSelection
+        && tiles[selected.x, selected.y].unit != null) {
+            UnitScript unitScript = tiles[selected.x, selected.y].unitScript;
+            foreach (UnitCommand cmd in unitScript.commands) {
+                SetTileColor(cmd.target, digLaterFocusColor);
+            }
+            foreach (UnitCommand cmd in unitScript.nextCommands) {
+                SetTileColor(cmd.target, digNextFocusColor);
+            }
+        }
+		MultiplyTileColor(hovered, hoveredColor);
 		if (selected != noSelection) {
-			SetTileColor (selected, Color.green);
+			SetTileColor(selected, selectedColor);
 		}
 
-		if (Input.GetKeyDown (KeyCode.Space)) {
+		if (Input.GetKeyDown(KeyCode.Space)) {
 			// TODO janky for now
 			// Deselect everything
 			selected = noSelection;
 			neighbors = null;
 		}
 	}
-
 }
