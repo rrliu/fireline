@@ -77,7 +77,7 @@ public class UnitScript : MonoBehaviour {
             }
             orderedCommands.Add(newCmd);
         }
-        orderedCommands.Sort(CompareCommandsByDist);
+        //orderedCommands.Sort(CompareCommandsByDist);
 
         commands.Clear();
         nextCommands.Clear();

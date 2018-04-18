@@ -4,7 +4,8 @@ using UnityEngine;
 
 [RequireComponent(typeof(HexGrid))]
 public class TurnScript : MonoBehaviour {
-    public GameObject nextTurnText;
+	public GameObject nextTurnText;
+	public GameObject nextTurnPrompt;
 	[HideInInspector] public bool playerTurn;
 
 	HexGrid hexGrid;

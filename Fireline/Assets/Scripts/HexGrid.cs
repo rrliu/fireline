@@ -520,6 +520,8 @@ public class HexGrid : MonoBehaviour {
                     selected = hovered;
                     TileInfo selectedTile = tiles[selected.x, selected.y];
                     float range = selectedTile.unitScript.rangeRemaining;
+					// TODO temporary
+					range -= 1.0f;
                     if (range > 0.0f) {
                         neighbors = GetReachableTiles(selected, range);
                     } else {
@@ -547,7 +549,18 @@ public class HexGrid : MonoBehaviour {
                         UnitCommand digCommand;
                         digCommand.type = UnitCommandType.DIG;
                         digCommand.target = hovered;
-                        unitTile.unitScript.AddCommandIfNew(digCommand);
+						bool exists = false;
+						foreach (Vector2Int ut in unitTiles) {
+							foreach (UnitCommand cmd in tiles[ut.x, ut.y].unitScript.commands) {
+								if (cmd.type == digCommand.type && cmd.target == digCommand.target) {
+									exists = true;
+									break;
+								}
+							}
+						}
+						if (!exists) {
+							unitTile.unitScript.AddCommandIfNew (digCommand);
+						}
                     }
                 }
             }
@@ -589,9 +602,17 @@ public class HexGrid : MonoBehaviour {
 
         foreach (Vector2Int unitTile in unitTiles) {
             UnitScript unitScript = tiles[unitTile.x, unitTile.y].unitScript;
+			LineRenderer unitLine = tiles[unitTile.x, unitTile.y].unit.GetComponent<LineRenderer>();
+			List<Vector3> positions = new List<Vector3>();
+			positions.Add(unitScript.transform.position);
             foreach (UnitCommand cmd in unitScript.commands) {
+				Vector3 targetPos = TileIndicesToPos(cmd.target.x, cmd.target.y);
+				targetPos.z = -1.0f;
+				positions.Add(targetPos);
                 SetTileColor(cmd.target, digLaterColor);
             }
+			unitLine.positionCount = positions.Count;
+			unitLine.SetPositions(positions.ToArray());
             foreach (UnitCommand cmd in unitScript.nextCommands) {
                 SetTileColor(cmd.target, digNextColor);
             }
