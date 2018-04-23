@@ -227,6 +227,7 @@ GameObject:
   - component: {fileID: 1025822893}
   - component: {fileID: 1025822895}
   - component: {fileID: 1025822896}
+  - component: {fileID: 1025822897}
   m_Layer: 0
   m_Name: HexGrid
   m_TagString: Untagged
@@ -257,14 +258,11 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 1985d75769e1143e6b6ea425ace65fe0, type: 3}
   unitPrefabs:
   - {fileID: 1008886686332874, guid: cf83a844cd432524ba1a5e87adbdeb15, type: 2}
-  hoveredColor: {r: 0.6911765, g: 0.6911765, b: 0.6911765, a: 1}
-  selectedColor: {r: 0.6544118, g: 1, b: 0.6544118, a: 1}
-  neighborsColor: {r: 0.46530244, g: 0.61764705, b: 0.4450692, a: 1}
-  digNextColor: {r: 0.5955882, g: 0.5955882, b: 0.5955882, a: 1}
-  digNextFocusColor: {r: 0.33088237, g: 0.33088237, b: 0.33088237, a: 1}
-  digLaterColor: {r: 0.4705882, g: 0.36332178, b: 0.36332178, a: 1}
-  digLaterFocusColor: {r: 0.31617647, g: 0.08369378, b: 0.08369378, a: 1}
+  enabledMin: {x: 3, y: 32}
+  enabledSize: {x: 17, y: 17}
   deathSplat: {fileID: 1986432947}
+  unitTiles: []
+  onFire: []
 --- !u!4 &1025822894
 Transform:
   m_ObjectHideFlags: 0
@@ -310,6 +308,24 @@ MonoBehaviour:
   nextTurnPrompt: {fileID: 0}
   playerTurn: 0
   doneWithUnits: 0
+--- !u!114 &1025822897
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 1025822892}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 17249fcdb4d814538ab6e58ae778fbed, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hoveredColor: {r: 0.6911765, g: 0.6911765, b: 0.6911765, a: 1}
+  selectedColor: {r: 0.6544118, g: 1, b: 0.6544118, a: 1}
+  neighborsColor: {r: 0.46530244, g: 0.61764705, b: 0.4450692, a: 1}
+  digNextColor: {r: 0.5955882, g: 0.5955882, b: 0.5955882, a: 1}
+  digNextFocusColor: {r: 0.33088237, g: 0.33088237, b: 0.33088237, a: 1}
+  digLaterColor: {r: 0.4705882, g: 0.36332178, b: 0.36332178, a: 1}
+  digLaterFocusColor: {r: 0.31617647, g: 0.08369378, b: 0.08369378, a: 1}
 --- !u!1 &1128199446
 GameObject:
   m_ObjectHideFlags: 0
@@ -400,7 +416,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1406415688
 RectTransform:
   m_ObjectHideFlags: 0
@@ -552,14 +568,16 @@ MonoBehaviour:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1419057818}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ccec634ba987e8f4980b06a7a452e8c1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   margin: 20
-  maxSpeed: 20
+  maxSpeed: 0
   maxSpeedPoint: 2.5
+  zoomMax: 2
+  zoomSpeed: 0.05
 --- !u!1 &1708458500
 GameObject:
   m_ObjectHideFlags: 0

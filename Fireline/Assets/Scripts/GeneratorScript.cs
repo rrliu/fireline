@@ -14,16 +14,6 @@ public class GeneratorScript : MonoBehaviour {
 
     public bool cache;
 
-	Vector2 TileIndicesToPos(int i, int j) {
-		float xStride = Mathf.Sqrt(3.0f) / 2.0f;
-		float xOff = 0.0f;
-		if (j % 2 == 1) {
-			xOff += Mathf.Sqrt(3.0f) / 4.0f;
-		}
-		float yStride = 3.0f / 4.0f;
-		return new Vector2(xOff + i * xStride, j * yStride);
-	}
-
 	bool[,] GenerateSingleTileMask(Sprite sprite, Vector2Int start,
     int radius, float avgThreshold) {
 		int width = sprite.texture.width;

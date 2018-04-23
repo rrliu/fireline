@@ -89,8 +89,8 @@ public class UnitScript : MonoBehaviour {
             float cost = GetCommandTypeCost(cmd.command.type);
             // TODO need a pathfinding routine here...
             float dist = cmd.distToTarget - lastDist;
-            HexGrid.TileInfo targetInfo
-                = hexGrid.tiles[cmd.command.target.x, cmd.command.target.y];
+            TileInfo targetInfo
+				= hexGrid.tiles[cmd.command.target.x, cmd.command.target.y];
             if (targetInfo.unit == null && r >= dist + cost) {
                 r -= dist + cost;
                 lastDist = cmd.distToTarget;
