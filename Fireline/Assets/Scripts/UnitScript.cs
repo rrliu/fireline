@@ -9,7 +9,8 @@ public enum UnitType {
 
 public enum UnitCommandType {
     MOVE,
-    DIG
+    DIG,
+    INVALID
 }
 
 public struct UnitCommand {
@@ -17,6 +18,7 @@ public struct UnitCommand {
     public Vector2Int target;
 }
 
+[RequireComponent(typeof(LineRenderer))]
 public class UnitScript : MonoBehaviour {
     public UnitType unitType;
 	public float range;
@@ -24,25 +26,23 @@ public class UnitScript : MonoBehaviour {
     
     [HideInInspector] public List<UnitCommand> commands
         = new List<UnitCommand>();
-    [HideInInspector] public List<UnitCommand> nextCommands
-        = new List<UnitCommand>();
+
+    struct UnitCommandFull {
+        public UnitCommandType type;
+        public Vector2Int target;
+        public float cost;
+        public bool removeMarker;
+    }
+    List<UnitCommandFull> fullCommands = new List<UnitCommandFull>();
 
     // Updated by HexGrid
     [HideInInspector] public Vector2Int tile;
 
     HexGrid hexGrid;
+    MovementScript movementScript;
+    LineRenderer lineRenderer;
 
-    struct UnitCommandOrdered {
-        public UnitCommand command;
-        public float distToTarget;
-    }
-    
-    static int CompareCommandsByDist(
-    UnitCommandOrdered cmd1, UnitCommandOrdered cmd2) {
-        return cmd1.distToTarget.CompareTo(cmd2.distToTarget);
-    }
-
-    public float GetCommandTypeCost(UnitCommandType type) {
+    public static float GetCommandTypeCost(UnitCommandType type) {
         if (type == UnitCommandType.MOVE) {
             return 0.0f;
         }
@@ -54,66 +54,147 @@ public class UnitScript : MonoBehaviour {
         return 0.0f;
     }
 
-    public void UpdateCommandList() {
-        // Update command distances from unit tile
-        // TODO pathfinding routine would be better here
-        List<UnitCommandOrdered> orderedCommands
-            = new List<UnitCommandOrdered>();
-        List<HexGrid.TileNode> tiles
-            = hexGrid.GetReachableTiles(tile, rangeRemaining);
-        for (int i = 0; i < commands.Count; i++) {
-            UnitCommandOrdered newCmd;
-            newCmd.command = commands[i];
-            newCmd.distToTarget = float.PositiveInfinity;
-            int ind = -1;
-            for (int j = 0; j < tiles.Count; j++) {
-                if (commands[i].target == tiles[j].coords) {
-                    ind = j;
-                    break;
+    public void UpdateFullCommands(UnitCommand cmd) {
+        Vector2Int prevTile = tile;
+        if (commands.Count > 0) {
+            prevTile = commands[commands.Count - 1].target;
+        }
+        
+        if (cmd.type == UnitCommandType.MOVE) {
+            List<TileNode> path = hexGrid.GetShortestPath(prevTile, cmd.target);
+            if (path == null) {
+                UnitCommandFull cmdInvalid;
+                cmdInvalid.type = UnitCommandType.INVALID;
+                cmdInvalid.target = cmd.target;
+                cmdInvalid.cost = float.PositiveInfinity;
+                cmdInvalid.removeMarker = false;
+                fullCommands.Add(cmdInvalid);
+            }
+            else {
+                float totalDist = 0.0f;
+                foreach (TileNode node in path) {
+                    UnitCommandFull cmdMoveStep;
+                    cmdMoveStep.type = UnitCommandType.MOVE;
+                    cmdMoveStep.target = node.coords;
+                    cmdMoveStep.cost = node.dist - totalDist;
+                    cmdMoveStep.removeMarker = false;
+                    fullCommands.Add(cmdMoveStep);
+                    totalDist += cmdMoveStep.cost;
                 }
             }
-            if (ind != -1) {
-                newCmd.distToTarget = tiles[ind].dist;
-            }
-            orderedCommands.Add(newCmd);
         }
-        //orderedCommands.Sort(CompareCommandsByDist);
+        else if (cmd.type == UnitCommandType.DIG) {
+            Debug.Assert(cmd.target == prevTile);
+            UnitCommandFull cmdDig;
+            cmdDig.type = UnitCommandType.DIG;
+            cmdDig.target = cmd.target;
+            cmdDig.cost = GetCommandTypeCost(UnitCommandType.DIG);
+            cmdDig.removeMarker = false;
+            fullCommands.Add(cmdDig);
+        }
+        else {
+            Debug.LogError("Unhandled command");
+        }
 
+        // TODO: janky, but yeah...
+        UnitCommandFull cmdMoveMarker;
+        cmdMoveMarker.type = cmd.type;
+        cmdMoveMarker.target = cmd.target;
+        cmdMoveMarker.cost = 0.0f;
+        cmdMoveMarker.removeMarker = true;
+        fullCommands.Add(cmdMoveMarker);
+    }
+
+    public void UpdateFullCommands() {
+        List<UnitCommand> commandsCopy = new List<UnitCommand>(commands);
         commands.Clear();
-        nextCommands.Clear();
-        float r = rangeRemaining;
-        float lastDist = 0.0f;
-        foreach (UnitCommandOrdered cmd in orderedCommands) {
-            commands.Add(cmd.command);
-
-            float cost = GetCommandTypeCost(cmd.command.type);
-            // TODO need a pathfinding routine here...
-            float dist = cmd.distToTarget - lastDist;
-            TileInfo targetInfo
-				= hexGrid.tiles[cmd.command.target.x, cmd.command.target.y];
-            if (targetInfo.unit == null && r >= dist + cost) {
-                r -= dist + cost;
-                lastDist = cmd.distToTarget;
-                nextCommands.Add(cmd.command);
-            }
+        fullCommands.Clear();
+        foreach (UnitCommand cmd in commandsCopy) {
+            UpdateFullCommands(cmd);
+            commands.Add(cmd);
         }
     }
 
     public void AddCommandIfNew(UnitCommand command) {
         if (!commands.Contains(command)) {
+            UpdateFullCommands(command);
             commands.Add(command);
-            UpdateCommandList();
         }
     }
 
     public void ClearCommands() {
         commands.Clear();
-        UpdateCommandList();
+        UpdateFullCommands();
+    }
+
+    public void ExecuteCommands() {
+        float rangeRemaining = range;
+        foreach (UnitCommandFull cmdFull in fullCommands) {
+            if (cmdFull.removeMarker) {
+                UnitCommand toRemove;
+                toRemove.type = cmdFull.type;
+                toRemove.target = cmdFull.target;
+                commands.Remove(toRemove);
+                continue;
+            }
+            rangeRemaining -= cmdFull.cost;
+            if (rangeRemaining >= 0.0f) {
+                if (cmdFull.type == UnitCommandType.MOVE) {
+                    hexGrid.MoveUnit(tile, cmdFull.target);
+                }
+                else if (cmdFull.type == UnitCommandType.DIG) {
+                    hexGrid.ChangeTileTypeAt(cmdFull.target, TileType.FIRELINE);
+                }
+                else if (cmdFull.type == UnitCommandType.INVALID) {
+                    break;
+                }
+            }
+            else {
+                break;
+            }
+        }
+
+        UpdateFullCommands();
+    }
+
+    public void DrawCommands() {
+        List<Vector3> positions = new List<Vector3>();
+        positions.Add(transform.position);
+        float rangeRemaining = range;
+        foreach (UnitCommandFull cmdFull in fullCommands) {
+            if (cmdFull.removeMarker) {
+                continue;
+            }
+            rangeRemaining -= cmdFull.cost;
+            if (cmdFull.type == UnitCommandType.MOVE) {
+                Vector3 targetPos = hexGrid.TileIndicesToPos(
+                    cmdFull.target.x, cmdFull.target.y);
+                targetPos.z = -1.0f;
+                positions.Add(targetPos);
+            }
+            else if (cmdFull.type == UnitCommandType.DIG) {
+                // draw shovel
+                hexGrid.SetTileColor(cmdFull.target,
+                    movementScript.digNextFocusColor);
+            }
+            else if (cmdFull.type == UnitCommandType.INVALID) {
+                // draw red line or something
+                hexGrid.SetTileColor(cmdFull.target, Color.red);
+            }
+
+            if (rangeRemaining < 0.0f) {
+                hexGrid.MultiplyTileColor(cmdFull.target, Color.red);
+            }
+        }
+        lineRenderer.positionCount = positions.Count;
+        lineRenderer.SetPositions(positions.ToArray());
     }
 
 	// Use this for initialization
 	void Start () {
         hexGrid = GameObject.Find("HexGrid").GetComponent<HexGrid>();
+        movementScript = GameObject.Find("HexGrid").GetComponent<MovementScript>();
+        lineRenderer = GetComponent<LineRenderer>();
 		rangeRemaining = range;
 	}
 	
