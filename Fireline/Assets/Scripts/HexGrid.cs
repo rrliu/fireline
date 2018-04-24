@@ -285,10 +285,6 @@ public class HexGrid : MonoBehaviour {
         CreateFireAt(new Vector2Int(40, 45));
         CreateFireAt(new Vector2Int(46, 41));
 	}
-	public struct TileNode {
-		public Vector2Int coords;
-		public float dist;
-	}
 
 	Vector2Int[] GetNeighbors(Vector2Int node) {
 		Vector2Int[] result = new Vector2Int[6];
@@ -337,6 +333,23 @@ public class HexGrid : MonoBehaviour {
 		return realResult;
 	}
 
+	public struct TileNode : System.IComparable {
+		public Vector2Int coords;
+		public float dist;
+
+		public int CompareTo(object obj) {
+			if (obj == null) {
+				return 1;
+			}
+
+			TileNode tileNode = (TileNode)obj;
+			return dist.CompareTo(tileNode.dist);
+		}
+	}
+	public List<TileNode> GetShortestPath(Vector2Int src, Vector2Int dst) {
+		
+		return new List<TileNode>();
+	}
 	public List<TileNode> GetReachableTiles(Vector2Int start, float maxDist) {
 		Hashtable visited = new Hashtable ();
 		TileNode root;
