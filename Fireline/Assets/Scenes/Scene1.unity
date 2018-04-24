@@ -322,10 +322,10 @@ MonoBehaviour:
   hoveredColor: {r: 0.6911765, g: 0.6911765, b: 0.6911765, a: 1}
   selectedColor: {r: 0.6544118, g: 1, b: 0.6544118, a: 1}
   neighborsColor: {r: 0.46530244, g: 0.61764705, b: 0.4450692, a: 1}
-  digNextColor: {r: 0.5955882, g: 0.5955882, b: 0.5955882, a: 1}
-  digNextFocusColor: {r: 0.33088237, g: 0.33088237, b: 0.33088237, a: 1}
-  digLaterColor: {r: 0.4705882, g: 0.36332178, b: 0.36332178, a: 1}
-  digLaterFocusColor: {r: 0.31617647, g: 0.08369378, b: 0.08369378, a: 1}
+  outOfRangeColor: {r: 1, g: 0.85294116, b: 0.85294116, a: 1}
+  outOfRangeColorFocus: {r: 1, g: 0.5514706, b: 0.5514706, a: 1}
+  unitLineColor: {r: 0.9411765, g: 0.9323947, b: 0.62283736, a: 0.23529412}
+  unitLineColorFocus: {r: 0.9411765, g: 0.9323947, b: 0.62283736, a: 0.378}
 --- !u!1 &1128199446
 GameObject:
   m_ObjectHideFlags: 0

@@ -36,16 +36,16 @@ public class TurnScript : MonoBehaviour {
         while (!doneWithUnits) {
             yield return null;
         }
-        //Debug.Log("Executed unit commands");
 
         // Fire
         hexGrid.AgeFire();
         hexGrid.SpreadFire();
-        //Debug.Log("Processed fire");
+
+        // Update unit command paths after fire has spread
+        hexGrid.UpdateUnitCommands();
 
         nextTurnText.SetActive(false);
         playerTurn = true;
-        //Debug.Log("Player's turn again");
         StartPlayerTurn();
         turnTransition = false;
     }

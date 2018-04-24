@@ -20,7 +20,7 @@ public struct UnitCommand {
 
 [RequireComponent(typeof(LineRenderer))]
 public class UnitScript : MonoBehaviour {
-    public UnitType unitType;
+    public UnitType type;
 	public float range;
 	[HideInInspector] public float rangeRemaining;
     
@@ -123,24 +123,38 @@ public class UnitScript : MonoBehaviour {
     }
 
     public void ClearCommands() {
+        foreach (UnitCommand cmd in commands) {
+            if (cmd.type == UnitCommandType.DIG) {
+                hexGrid.tiles[cmd.target.x, cmd.target.y]
+                    .gameObject.transform.Find("ShovelIcon")
+                    .gameObject.SetActive(false);
+            }
+        }
         commands.Clear();
         UpdateFullCommands();
     }
 
     public void ExecuteCommands() {
         float rangeRemaining = range;
+        Vector2Int newTilePos = tile;
         foreach (UnitCommandFull cmdFull in fullCommands) {
             if (cmdFull.removeMarker) {
+                // Remove command from commands list
                 UnitCommand toRemove;
                 toRemove.type = cmdFull.type;
                 toRemove.target = cmdFull.target;
                 commands.Remove(toRemove);
+                if (toRemove.type == UnitCommandType.DIG) {
+                    hexGrid.tiles[toRemove.target.x, toRemove.target.y]
+                        .gameObject.transform.Find("ShovelIcon")
+                        .gameObject.SetActive(false);
+                }
                 continue;
             }
             rangeRemaining -= cmdFull.cost;
             if (rangeRemaining >= 0.0f) {
                 if (cmdFull.type == UnitCommandType.MOVE) {
-                    hexGrid.MoveUnit(tile, cmdFull.target);
+                    newTilePos = cmdFull.target;
                 }
                 else if (cmdFull.type == UnitCommandType.DIG) {
                     hexGrid.ChangeTileTypeAt(cmdFull.target, TileType.FIRELINE);
@@ -153,11 +167,18 @@ public class UnitScript : MonoBehaviour {
                 break;
             }
         }
+        hexGrid.MoveUnit(tile, newTilePos);
 
         UpdateFullCommands();
     }
 
-    public void DrawCommands() {
+    public void DrawCommands(bool isSelected) {
+        Color lineColor = movementScript.unitLineColor;
+        if (isSelected) {
+            lineColor = movementScript.unitLineColorFocus;
+        }
+        lineRenderer.startColor = lineColor;
+        lineRenderer.endColor = lineColor;
         List<Vector3> positions = new List<Vector3>();
         positions.Add(transform.position);
         float rangeRemaining = range;
@@ -174,16 +195,27 @@ public class UnitScript : MonoBehaviour {
             }
             else if (cmdFull.type == UnitCommandType.DIG) {
                 // draw shovel
-                hexGrid.SetTileColor(cmdFull.target,
-                    movementScript.digNextFocusColor);
+                TileInfo tileInfo = hexGrid.tiles[cmdFull.target.x, cmdFull.target.y];
+                tileInfo.gameObject.transform.Find("ShovelIcon").gameObject.SetActive(true);
+                /*hexGrid.SetTileColor(cmdFull.target,
+                    movementScript.digNextFocusColor);*/
             }
             else if (cmdFull.type == UnitCommandType.INVALID) {
                 // draw red line or something
                 hexGrid.SetTileColor(cmdFull.target, Color.red);
+                Vector3 targetPos = hexGrid.TileIndicesToPos(
+                    cmdFull.target.x, cmdFull.target.y);
+                targetPos.z = -1.0f;
+                positions.Add(targetPos);
+                lineRenderer.endColor = Color.red;
             }
 
             if (rangeRemaining < 0.0f) {
-                hexGrid.MultiplyTileColor(cmdFull.target, Color.red);
+                Color outOfRangeColor = movementScript.outOfRangeColor;
+                if (isSelected) {
+                    outOfRangeColor = movementScript.outOfRangeColorFocus;
+                }
+                hexGrid.MultiplyTileColor(cmdFull.target, outOfRangeColor);
             }
         }
         lineRenderer.positionCount = positions.Count;

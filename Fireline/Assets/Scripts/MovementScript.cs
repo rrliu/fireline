@@ -8,10 +8,10 @@ public class MovementScript : MonoBehaviour {
 	public Color hoveredColor;
 	public Color selectedColor;
 	public Color neighborsColor;
-	public Color digNextColor;
-	public Color digNextFocusColor;
-	public Color digLaterColor;
-	public Color digLaterFocusColor;
+	public Color outOfRangeColor;
+	public Color outOfRangeColorFocus;
+    public Color unitLineColor;
+    public Color unitLineColorFocus;
 
 	HexGrid hexGrid;
 	TurnScript turnScript;
@@ -33,6 +33,28 @@ public class MovementScript : MonoBehaviour {
 		}
 		return ind;
 	}
+
+    bool IsTileWalkable(Vector2Int tile, UnitType unitType) {
+        TileInfo tileInfo = hexGrid.tiles[tile.x, tile.y];
+        if (tileInfo.unit == null
+        && tileInfo.fire == null
+        && tileInfo.type != TileType.WATER) {
+            return true;
+        }
+
+        return false;
+    }
+
+    bool IsTileDiggable(Vector2Int tile, UnitType unitType) {
+        TileInfo tileInfo = hexGrid.tiles[tile.x, tile.y];
+        if (tileInfo.fire == null
+        && tileInfo.type != TileType.WATER
+        && tileInfo.type != TileType.FIRELINE) {
+            return true;
+        }
+
+        return false;
+    }
 
 	// Use this for initialization
 	void Start () {
@@ -79,54 +101,42 @@ public class MovementScript : MonoBehaviour {
 					}
                 }
 			}
-            if (Input.GetMouseButton(0)) {
-				// Did the player try to move a unit?
-				if (selected != noSelection
-				&& hexGrid.tiles[selected.x, selected.y].unit != null) {
+            if (selected != noSelection
+            && hexGrid.tiles[selected.x, selected.y].unit != null) {
+                // Selection is a unit
+                TileInfo unitTile = hexGrid.tiles[selected.x, selected.y];
+                UnitType unitType = unitTile.unitScript.type;
+
+                if (Input.GetMouseButton(0)) {
                     // Determine whether the unit can move to the target tile
-                    if (hoveredTile.unit == null
-                    && hoveredTile.fire == null) {
+                    if (IsTileWalkable(hovered, unitType)) {
                         // Move the unit
-                        TileInfo unitTile = hexGrid.tiles[
-                            selected.x, selected.y];
                         UnitCommand moveCommand;
                         moveCommand.type = UnitCommandType.MOVE;
                         moveCommand.target = hovered;
                         unitTile.unitScript.AddCommandIfNew(moveCommand);
-                        //MoveUnit(selected, hovered, neighbors[ind].dist);
                     }
-				}
-            }
-			else if (Input.GetMouseButton(1)) {
-				// Did the player try to dig?
-				if (selected != noSelection
-				&& hexGrid.tiles[selected.x, selected.y].unit != null) {
-					// Determine whether the unit can dig the target tile
-					TileInfo unitTile = hexGrid.tiles[selected.x, selected.y];
-					TileInfo targetTile = hoveredTile;
-					if (targetTile.fire == null
-					&& targetTile.type != TileType.WATER) {
+                }
+                else if (Input.GetMouseButton(1)) {
+                    // Determine whether the unit can dig the target tile
+                    if (IsTileDiggable(hovered, unitType)) {
                         UnitCommand moveCommand;
                         moveCommand.type = UnitCommandType.MOVE;
                         moveCommand.target = hovered;
-						unitTile.unitScript.AddCommandIfNew(moveCommand);
-						UnitCommand digCommand;
-						digCommand.type = UnitCommandType.DIG;
-						digCommand.target = hovered;
-						unitTile.unitScript.AddCommandIfNew(digCommand);
-					}
-				}
-			}
+                        unitTile.unitScript.AddCommandIfNew(moveCommand);
+                        UnitCommand digCommand;
+                        digCommand.type = UnitCommandType.DIG;
+                        digCommand.target = hovered;
+                        unitTile.unitScript.AddCommandIfNew(digCommand);
+                    }
+                }
 
-			if (Input.GetKeyDown(KeyCode.Escape)) {
-				// Did the player try to clear the selected unit's commands?
-				if (selected != noSelection
-					&& hexGrid.tiles[selected.x, selected.y].unit) {
-					hexGrid.tiles[selected.x, selected.y].unitScript.ClearCommands();
-				}
-			}
+                if (Input.GetKeyDown(KeyCode.Escape)) {
+                    // Clear selected unit's commands
+                    unitTile.unitScript.ClearCommands();
+                }
+            }
 
-			// Paint all tiles we want to paint, in order
 			if (neighbors != null) {
 				foreach (TileNode tile in neighbors) {
 					hexGrid.SetTileColor(tile.coords, neighborsColor);
@@ -135,12 +145,13 @@ public class MovementScript : MonoBehaviour {
 		}
 
 		foreach (Vector2Int unitTile in hexGrid.unitTiles) {
+            bool isSelected = unitTile == selected;
 			UnitScript unitScript = hexGrid.tiles[unitTile.x, unitTile.y].unitScript;
-            unitScript.DrawCommands();
+            unitScript.DrawCommands(isSelected);
 		}
 		hexGrid.MultiplyTileColor(hovered, hoveredColor);
 		if (selected != noSelection) {
-			hexGrid.SetTileColor(selected, selectedColor);
+			hexGrid.MultiplyTileColor(selected, selectedColor);
 		}
 
 		if (Input.GetKeyDown(KeyCode.Space)) {

@@ -216,6 +216,9 @@ public class HexGrid : MonoBehaviour {
     public void MoveUnit(Vector2Int from, Vector2Int to) {
         DebugValidateTileIndex(from);
         DebugValidateTileIndex(to);
+        if (to == from) {
+            return;
+        }
         Debug.Assert(tiles[from.x, from.y].unit != null);
         Debug.Assert(tiles[to.x, to.y].unit == null);
         // Move the unit
@@ -472,7 +475,11 @@ public class HexGrid : MonoBehaviour {
 
         turnScript.doneWithUnits = true;
     }
-
+    public void UpdateUnitCommands() {
+        foreach (Vector2Int tile in unitTiles) {
+            tiles[tile.x, tile.y].unitScript.UpdateFullCommands();
+        }
+    }
     public void AgeFire() {
         List<Vector2Int> firesToRemove = new List<Vector2Int>();
         foreach (Vector2Int tile in onFire) {
@@ -487,7 +494,6 @@ public class HexGrid : MonoBehaviour {
             PutOutFireIfExistsAt(tile);
         }
     }
-
     public void SpreadFire() {
         List<Vector2Int> onFirePrev = new List<Vector2Int>(onFire);
         foreach (Vector2Int tile in onFirePrev) {
