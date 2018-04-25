@@ -255,7 +255,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: fa82a11865384485c9bc358905ab681d, type: 3}
   - {fileID: 21300000, guid: d65cec1b18f914c78b236b4595651553, type: 3}
   - {fileID: 21300000, guid: a2134ef77650db74d92049992bfa2c1b, type: 3}
-  - {fileID: 21300000, guid: 1985d75769e1143e6b6ea425ace65fe0, type: 3}
+  - {fileID: 21300000, guid: d7f7bec52055347d4aec2bff2d1f7dbb, type: 3}
   unitPrefabs:
   - {fileID: 1008886686332874, guid: cf83a844cd432524ba1a5e87adbdeb15, type: 2}
   enabledMin: {x: 3, y: 32}
@@ -704,7 +704,7 @@ SpriteRenderer:
   m_SortingLayer: 1
   m_SortingOrder: 0
   m_Sprite: {fileID: 21300000, guid: 0761d01d5a3d045238b9a1464608f9a7, type: 3}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.391}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0

@@ -136,7 +136,8 @@ public class UnitScript : MonoBehaviour {
 
     public void ExecuteCommands() {
         float rangeRemaining = range;
-        Vector2Int newTilePos = tile;
+        Vector2Int currentUnitTile = tile;
+		bool isDead = false;
         foreach (UnitCommandFull cmdFull in fullCommands) {
             if (cmdFull.removeMarker) {
                 // Remove command from commands list
@@ -154,7 +155,14 @@ public class UnitScript : MonoBehaviour {
             rangeRemaining -= cmdFull.cost;
             if (rangeRemaining >= 0.0f) {
                 if (cmdFull.type == UnitCommandType.MOVE) {
-                    newTilePos = cmdFull.target;
+					if (hexGrid.tiles [cmdFull.target.x, cmdFull.target.y].fire != null) {
+						hexGrid.MoveUnit(tile, currentUnitTile);
+						hexGrid.KillUnitAt(currentUnitTile);
+						isDead = true;
+						break;
+					} else {
+						currentUnitTile = cmdFull.target;
+					}
                 }
                 else if (cmdFull.type == UnitCommandType.DIG) {
                     hexGrid.ChangeTileTypeAt(cmdFull.target, TileType.FIRELINE);
@@ -167,9 +175,10 @@ public class UnitScript : MonoBehaviour {
                 break;
             }
         }
-        hexGrid.MoveUnit(tile, newTilePos);
-
-        UpdateFullCommands();
+		if (!isDead) {
+			hexGrid.MoveUnit(tile, currentUnitTile);
+			UpdateFullCommands();
+		}
     }
 
     public void DrawCommands(bool isSelected) {

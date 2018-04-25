@@ -113,9 +113,9 @@ public class HexGrid : MonoBehaviour {
         if (tileInfo.disabled) {
             return 0.0f;
         }
-        if (tileInfo.fire != null) {
+        /*if (tileInfo.fire != null) {
             return 0.0f;
-        }
+        }*/
         TileType type = tileInfo.type;
 		if (type == TileType.WATER) {
 			return 0.0f;
@@ -239,7 +239,8 @@ public class HexGrid : MonoBehaviour {
         Debug.Assert(tiles[i, j].unit != null);
         Destroy(tiles[i, j].unit);
         tiles[i, j].unit = null;
-        unitTiles.Remove(tile);
+		unitTiles.Remove(tile);
+		deathSplat.SetTrigger("splat");
     }
 
     public void CreateFireAt(Vector2Int tile) {
@@ -520,7 +521,6 @@ public class HexGrid : MonoBehaviour {
 
         foreach (Vector2Int tile in deadUnitTiles) {
             KillUnitAt(tile);
-            deathSplat.SetTrigger("splat");
         }
 	}
 
