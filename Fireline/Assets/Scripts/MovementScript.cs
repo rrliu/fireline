@@ -110,27 +110,27 @@ public class MovementScript : MonoBehaviour {
                 TileInfo unitTile = hexGrid.tiles[selected.x, selected.y];
                 UnitType unitType = unitTile.unitScript.type;
 
-                if (Input.GetMouseButton(0)) {
+                if (Input.GetMouseButtonDown(0)) {
                     // Determine whether the unit can move to the target tile
                     if (IsTileWalkable(hovered, unitType)) {
                         // Move the unit
                         UnitCommand moveCommand;
                         moveCommand.type = UnitCommandType.MOVE;
                         moveCommand.target = hovered;
-                        unitTile.unitScript.AddCommandIfNew(moveCommand);
+						unitTile.unitScript.SubmitCommand(moveCommand);
                     }
                 }
-                else if (Input.GetMouseButton(1)) {
+                else if (Input.GetMouseButtonDown(1)) {
                     // Determine whether the unit can dig the target tile
                     if (IsTileDiggable(hovered, unitType)) {
-                        UnitCommand moveCommand;
-                        moveCommand.type = UnitCommandType.MOVE;
-                        moveCommand.target = hovered;
-                        unitTile.unitScript.AddCommandIfNew(moveCommand);
+//                        UnitCommand moveCommand;
+//                        moveCommand.type = UnitCommandType.MOVE;
+//                        moveCommand.target = hovered;
+//                        unitTile.unitScript.SubmitCommand(moveCommand);
                         UnitCommand digCommand;
                         digCommand.type = UnitCommandType.DIG;
                         digCommand.target = hovered;
-                        unitTile.unitScript.AddCommandIfNew(digCommand);
+						unitTile.unitScript.SubmitCommand(digCommand);
                     }
                 }
 

@@ -136,7 +136,6 @@ public class HexGrid : MonoBehaviour {
             ind / width
         );
     }
-
     public int ToTileIndex1D(int i, int j) {
         DebugValidateTileIndex(new Vector2Int(i, j));
         return j * width + i;
