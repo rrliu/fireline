@@ -37,7 +37,6 @@ public class MovementScript : MonoBehaviour {
     bool IsTileWalkable(Vector2Int tile, UnitType unitType) {
         TileInfo tileInfo = hexGrid.tiles[tile.x, tile.y];
         if (tileInfo.unit == null
-        && tileInfo.fire == null
         && tileInfo.type != TileType.WATER) {
             return true;
         }
@@ -46,6 +45,10 @@ public class MovementScript : MonoBehaviour {
     }
 
     bool IsTileDiggable(Vector2Int tile, UnitType unitType) {
+        if (unitType != UnitType.TEST) {
+            return false;
+        }
+
         TileInfo tileInfo = hexGrid.tiles[tile.x, tile.y];
         if (tileInfo.fire == null
         && tileInfo.type != TileType.WATER

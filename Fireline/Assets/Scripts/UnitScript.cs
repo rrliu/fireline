@@ -4,6 +4,7 @@ using UnityEngine;
 
 public enum UnitType {
     TEST,
+    TRUCK,
     NONE
 }
 
@@ -24,19 +25,27 @@ public class UnitScript : MonoBehaviour {
 	public float range;
 	[HideInInspector] public float rangeRemaining;
     
+    // List of player-issued commands
     [HideInInspector] public List<UnitCommand> commands
         = new List<UnitCommand>();
 
-    struct UnitCommandFull {
+    struct UnitCommandStep {
         public UnitCommandType type;
         public Vector2Int target;
         public float cost;
+        // Used to indicate if the command has been completed
+        // (as opposed to being a step along the way)
+        // If this is true, the corresponding command will be removed
+        // from the "commands" list
         public bool removeMarker;
     }
-    List<UnitCommandFull> fullCommands = new List<UnitCommandFull>();
+    // Generated list of step-by-step commands
+    List<UnitCommandStep> stepCommands = new List<UnitCommandStep>();
 
     // Updated by HexGrid
     [HideInInspector] public Vector2Int tile;
+    // Used for movement/command delay
+    [HideInInspector] public bool doneMoving = true;
 
     HexGrid hexGrid;
     MovementScript movementScript;
@@ -54,7 +63,9 @@ public class UnitScript : MonoBehaviour {
         return 0.0f;
     }
 
-    public void UpdateFullCommands(UnitCommand cmd) {
+    // Append the given command to the list of step-by-step commands
+    // Creates all the steps necessary to end at the command
+    public void AppendToStepCommands(UnitCommand cmd) {
         Vector2Int prevTile = tile;
         if (commands.Count > 0) {
             prevTile = commands[commands.Count - 1].target;
@@ -63,61 +74,62 @@ public class UnitScript : MonoBehaviour {
         if (cmd.type == UnitCommandType.MOVE) {
             List<TileNode> path = hexGrid.GetShortestPath(prevTile, cmd.target);
             if (path == null) {
-                UnitCommandFull cmdInvalid;
+                UnitCommandStep cmdInvalid;
                 cmdInvalid.type = UnitCommandType.INVALID;
                 cmdInvalid.target = cmd.target;
                 cmdInvalid.cost = float.PositiveInfinity;
                 cmdInvalid.removeMarker = false;
-                fullCommands.Add(cmdInvalid);
+                stepCommands.Add(cmdInvalid);
             }
             else {
                 float totalDist = 0.0f;
                 foreach (TileNode node in path) {
-                    UnitCommandFull cmdMoveStep;
+                    UnitCommandStep cmdMoveStep;
                     cmdMoveStep.type = UnitCommandType.MOVE;
                     cmdMoveStep.target = node.coords;
                     cmdMoveStep.cost = node.dist - totalDist;
                     cmdMoveStep.removeMarker = false;
-                    fullCommands.Add(cmdMoveStep);
+                    stepCommands.Add(cmdMoveStep);
                     totalDist += cmdMoveStep.cost;
                 }
             }
         }
         else if (cmd.type == UnitCommandType.DIG) {
             Debug.Assert(cmd.target == prevTile);
-            UnitCommandFull cmdDig;
+            UnitCommandStep cmdDig;
             cmdDig.type = UnitCommandType.DIG;
             cmdDig.target = cmd.target;
             cmdDig.cost = GetCommandTypeCost(UnitCommandType.DIG);
             cmdDig.removeMarker = false;
-            fullCommands.Add(cmdDig);
+            stepCommands.Add(cmdDig);
         }
         else {
             Debug.LogError("Unhandled command");
         }
 
         // TODO: janky, but yeah...
-        UnitCommandFull cmdMoveMarker;
+        UnitCommandStep cmdMoveMarker;
         cmdMoveMarker.type = cmd.type;
         cmdMoveMarker.target = cmd.target;
         cmdMoveMarker.cost = 0.0f;
         cmdMoveMarker.removeMarker = true;
-        fullCommands.Add(cmdMoveMarker);
+        stepCommands.Add(cmdMoveMarker);
     }
 
-    public void UpdateFullCommands() {
+    // Re-calculate the entire list of step-by-step commands
+    public void UpdateStepCommands() {
         List<UnitCommand> commandsCopy = new List<UnitCommand>(commands);
         commands.Clear();
-        fullCommands.Clear();
+        stepCommands.Clear();
         foreach (UnitCommand cmd in commandsCopy) {
-            UpdateFullCommands(cmd);
+            AppendToStepCommands(cmd);
             commands.Add(cmd);
         }
     }
 
     public void AddCommandIfNew(UnitCommand command) {
         if (!commands.Contains(command)) {
-            UpdateFullCommands(command);
+            AppendToStepCommands(command);
             commands.Add(command);
         }
     }
@@ -131,19 +143,20 @@ public class UnitScript : MonoBehaviour {
             }
         }
         commands.Clear();
-        UpdateFullCommands();
+        UpdateStepCommands();
     }
 
-    public void ExecuteCommands() {
+    public IEnumerator ExecuteCommands() {
+        doneMoving = false;
         float rangeRemaining = range;
         Vector2Int currentUnitTile = tile;
 		bool isDead = false;
-        foreach (UnitCommandFull cmdFull in fullCommands) {
-            if (cmdFull.removeMarker) {
+        foreach (UnitCommandStep cmdStep in stepCommands) {
+            if (cmdStep.removeMarker) {
                 // Remove command from commands list
                 UnitCommand toRemove;
-                toRemove.type = cmdFull.type;
-                toRemove.target = cmdFull.target;
+                toRemove.type = cmdStep.type;
+                toRemove.target = cmdStep.target;
                 commands.Remove(toRemove);
                 if (toRemove.type == UnitCommandType.DIG) {
                     hexGrid.tiles[toRemove.target.x, toRemove.target.y]
@@ -152,33 +165,36 @@ public class UnitScript : MonoBehaviour {
                 }
                 continue;
             }
-            rangeRemaining -= cmdFull.cost;
+            yield return new WaitForSeconds(0.2f);
+            rangeRemaining -= cmdStep.cost;
             if (rangeRemaining >= 0.0f) {
-                if (cmdFull.type == UnitCommandType.MOVE) {
-					if (hexGrid.tiles [cmdFull.target.x, cmdFull.target.y].fire != null) {
+                if (cmdStep.type == UnitCommandType.MOVE) {
+					if (hexGrid.tiles[cmdStep.target.x, cmdStep.target.y].fire != null) {
 						hexGrid.MoveUnit(tile, currentUnitTile);
 						hexGrid.KillUnitAt(currentUnitTile);
 						isDead = true;
 						break;
 					} else {
-						currentUnitTile = cmdFull.target;
+						currentUnitTile = cmdStep.target;
 					}
                 }
-                else if (cmdFull.type == UnitCommandType.DIG) {
-                    hexGrid.ChangeTileTypeAt(cmdFull.target, TileType.FIRELINE);
+                else if (cmdStep.type == UnitCommandType.DIG) {
+                    hexGrid.ChangeTileTypeAt(cmdStep.target, TileType.FIRELINE);
                 }
-                else if (cmdFull.type == UnitCommandType.INVALID) {
+                else if (cmdStep.type == UnitCommandType.INVALID) {
                     break;
                 }
             }
             else {
                 break;
             }
+            transform.position = hexGrid.TileIndicesToPos(currentUnitTile.x, currentUnitTile.y);
         }
 		if (!isDead) {
 			hexGrid.MoveUnit(tile, currentUnitTile);
-			UpdateFullCommands();
+			UpdateStepCommands();
 		}
+        doneMoving = true;
     }
 
     public void DrawCommands(bool isSelected) {
@@ -191,29 +207,29 @@ public class UnitScript : MonoBehaviour {
         List<Vector3> positions = new List<Vector3>();
         positions.Add(transform.position);
         float rangeRemaining = range;
-        foreach (UnitCommandFull cmdFull in fullCommands) {
-            if (cmdFull.removeMarker) {
+        foreach (UnitCommandStep cmdStep in stepCommands) {
+            if (cmdStep.removeMarker) {
                 continue;
             }
-            rangeRemaining -= cmdFull.cost;
-            if (cmdFull.type == UnitCommandType.MOVE) {
+            rangeRemaining -= cmdStep.cost;
+            if (cmdStep.type == UnitCommandType.MOVE) {
                 Vector3 targetPos = hexGrid.TileIndicesToPos(
-                    cmdFull.target.x, cmdFull.target.y);
+                    cmdStep.target.x, cmdStep.target.y);
                 targetPos.z = -1.0f;
                 positions.Add(targetPos);
             }
-            else if (cmdFull.type == UnitCommandType.DIG) {
+            else if (cmdStep.type == UnitCommandType.DIG) {
                 // draw shovel
-                TileInfo tileInfo = hexGrid.tiles[cmdFull.target.x, cmdFull.target.y];
+                TileInfo tileInfo = hexGrid.tiles[cmdStep.target.x, cmdStep.target.y];
                 tileInfo.gameObject.transform.Find("ShovelIcon").gameObject.SetActive(true);
-                /*hexGrid.SetTileColor(cmdFull.target,
+                /*hexGrid.SetTileColor(cmdStep.target,
                     movementScript.digNextFocusColor);*/
             }
-            else if (cmdFull.type == UnitCommandType.INVALID) {
+            else if (cmdStep.type == UnitCommandType.INVALID) {
                 // draw red line or something
-                hexGrid.SetTileColor(cmdFull.target, Color.red);
+                hexGrid.SetTileColor(cmdStep.target, Color.red);
                 Vector3 targetPos = hexGrid.TileIndicesToPos(
-                    cmdFull.target.x, cmdFull.target.y);
+                    cmdStep.target.x, cmdStep.target.y);
                 targetPos.z = -1.0f;
                 positions.Add(targetPos);
                 lineRenderer.endColor = Color.red;
@@ -224,7 +240,7 @@ public class UnitScript : MonoBehaviour {
                 if (isSelected) {
                     outOfRangeColor = movementScript.outOfRangeColorFocus;
                 }
-                hexGrid.MultiplyTileColor(cmdFull.target, outOfRangeColor);
+                hexGrid.MultiplyTileColor(cmdStep.target, outOfRangeColor);
             }
         }
         lineRenderer.positionCount = positions.Count;

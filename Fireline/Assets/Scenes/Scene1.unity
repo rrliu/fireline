@@ -258,6 +258,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: d7f7bec52055347d4aec2bff2d1f7dbb, type: 3}
   unitPrefabs:
   - {fileID: 1008886686332874, guid: cf83a844cd432524ba1a5e87adbdeb15, type: 2}
+  - {fileID: 1004265654236912, guid: 4dc5d75f0fab4d74aadcb23a5a36276b, type: 2}
   enabledMin: {x: 3, y: 32}
   enabledSize: {x: 17, y: 17}
   deathSplat: {fileID: 1986432947}

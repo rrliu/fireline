@@ -200,10 +200,10 @@ public class HexGrid : MonoBehaviour {
         tiles[i, j].spriteRenderer.sprite = tileSprites[(int)newType];
     }
 
-    public void CreateUnitAt(Vector2Int tile) {
+    public void CreateUnitAt(Vector2Int tile, UnitType unitType) {
         DebugValidateTileIndex(tile);
         int i = tile.x, j = tile.y;
-		GameObject unit = Instantiate(unitPrefabs[0],
+		GameObject unit = Instantiate(unitPrefabs[(int)unitType],
 			tiles[i, j].gameObject.transform.position,
 			Quaternion.identity, transform);
 		tiles[i, j].unit = unit;
@@ -300,17 +300,12 @@ public class HexGrid : MonoBehaviour {
                         CreateFireAt(new Vector2Int(i, j));
                     }
                 }
-                if (tileType != TileType.WATER) {
-                    if (Random.Range(0.0f, 1.0f) < 0.1f) {
-                        // CreateUnitAt(new Vector2Int(i, j));
-                    }
-                }
 			}
 		}
 
-        CreateUnitAt(new Vector2Int(11, 37));
-        CreateUnitAt(new Vector2Int(12, 37));
-        CreateUnitAt(new Vector2Int(12, 38));
+        CreateUnitAt(new Vector2Int(11, 37), UnitType.TEST);
+        CreateUnitAt(new Vector2Int(12, 37), UnitType.TEST);
+        CreateUnitAt(new Vector2Int(12, 38), UnitType.TRUCK);
 
         CreateFireAt(new Vector2Int(11, 31));
         CreateFireAt(new Vector2Int(40, 45));
@@ -470,7 +465,10 @@ public class HexGrid : MonoBehaviour {
         List<Vector2Int> oldUnitTiles = new List<Vector2Int>(unitTiles);
         foreach (Vector2Int tile in oldUnitTiles) {
             UnitScript unitScript = tiles[tile.x, tile.y].unitScript;
-            unitScript.ExecuteCommands();
+            StartCoroutine(unitScript.ExecuteCommands());
+            while (!unitScript.doneMoving) {
+                yield return null;
+            }
             yield return new WaitForSeconds(0.5f);
         }
 
@@ -478,7 +476,7 @@ public class HexGrid : MonoBehaviour {
     }
     public void UpdateUnitCommands() {
         foreach (Vector2Int tile in unitTiles) {
-            tiles[tile.x, tile.y].unitScript.UpdateFullCommands();
+            tiles[tile.x, tile.y].unitScript.UpdateStepCommands();
         }
     }
     public void AgeFire() {
