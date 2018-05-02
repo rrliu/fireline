@@ -10,14 +10,18 @@ public enum TileType {
 	BURNT,
 	FIRELINE,
 	WATER,
+	CITY,
 	NONE
 }
 
 public struct TileInfo {
-	// Should all be set once, during initialization
+	// Should all be set once, at initialization
 	public TileType type;
 	public GameObject gameObject;
 	public SpriteRenderer spriteRenderer;
+    public GameObject outline;
+    public LineRenderer outlineRenderer;
+    // -----------------------------------------
 
 	// null if no unit
 	public GameObject unit;
@@ -41,6 +45,7 @@ public class HexGrid : MonoBehaviour {
 	public GameObject firePrefab;
     public float fireSpreadChance;
 	public Sprite[] tileSprites;
+    public Color waterOutlineColor;
 	public GameObject[] unitPrefabs;
 
 	public Vector2Int enabledMin;
@@ -53,6 +58,8 @@ public class HexGrid : MonoBehaviour {
     [HideInInspector] public List<Vector2Int> unitTiles = new List<Vector2Int>();
     [HideInInspector] public List<Vector2Int> onFire = new List<Vector2Int>();
 
+    Color defaultOutlineColor;
+    float defaultOutlineWidth;
     TurnScript turnScript;
 
     public void DebugValidateTileIndex(Vector2Int tileInd) {
@@ -63,24 +70,65 @@ public class HexGrid : MonoBehaviour {
 	public void ClearTileColors() {
 		for (int i = 0; i < width; i++) {
 			for (int j = 0; j < height; j++) {
-				Color color = Color.white;
-				if (tiles [i, j].disabled) {
-					color = Color.gray;
+				if (tiles[i, j].disabled) {
+                    tiles[i, j].spriteRenderer.color = Color.gray;
 				}
-				tiles[i, j].spriteRenderer.color = color;
+				Color color = defaultOutlineColor;
+                tiles[i, j].outlineRenderer.startColor = color;
+                tiles[i, j].outlineRenderer.endColor = color;
+                tiles[i, j].outlineRenderer.widthMultiplier =
+                    defaultOutlineWidth;
+                Vector3 pos = tiles[i, j].outline.transform.position;
+                pos.z = -2.0f;
+                tiles[i, j].outline.transform.position = pos;
+                if (tiles[i, j].type == TileType.WATER) {
+                    tiles[i, j].outlineRenderer.startColor = waterOutlineColor;
+                    tiles[i, j].outlineRenderer.endColor = waterOutlineColor;
+                tiles[i, j].outlineRenderer.widthMultiplier =
+                    defaultOutlineWidth * 2.0f;
+                }
 			}
 		}
 	}
 
 	public void SetTileColor(Vector2Int tile, Color color) {
 		DebugValidateTileIndex(tile);
-		tiles[tile.x, tile.y].spriteRenderer.color = color;
+		//tiles[tile.x, tile.y].spriteRenderer.color = color;
+        LineRenderer outlineRenderer = tiles[tile.x, tile.y].outlineRenderer;
+        outlineRenderer.startColor = color;
+        outlineRenderer.endColor = color;
+        outlineRenderer.widthMultiplier = defaultOutlineWidth * 2.0f;
+
+        Vector3 pos = tiles[tile.x, tile.y].outline.transform.position;
+        pos.z = -3.0f;
+        tiles[tile.x, tile.y].outline.transform.position = pos;
 	}
 
 	public void MultiplyTileColor(Vector2Int tile, Color color) {
 		DebugValidateTileIndex(tile);
-		tiles[tile.x, tile.y].spriteRenderer.color *= color;
+		//tiles[tile.x, tile.y].spriteRenderer.color *= color;
+        LineRenderer outlineRenderer = tiles[tile.x, tile.y].outlineRenderer;
+        outlineRenderer.startColor *= color;
+        outlineRenderer.endColor *= color;
+        outlineRenderer.widthMultiplier = defaultOutlineWidth * 2.0f;
+
+        Vector3 pos = tiles[tile.x, tile.y].outline.transform.position;
+        pos.z = -3.0f;
+        tiles[tile.x, tile.y].outline.transform.position = pos;
 	}
+
+    public void AverageTileColorWith(Vector2Int tile, Color color) {
+		DebugValidateTileIndex(tile);
+        LineRenderer outlineRenderer = tiles[tile.x, tile.y].outlineRenderer;
+        Color newColor = (outlineRenderer.startColor + color) / 2.0f;
+        outlineRenderer.startColor = newColor;
+        outlineRenderer.endColor = newColor;
+        outlineRenderer.widthMultiplier = defaultOutlineWidth * 2.0f;
+
+        Vector3 pos = tiles[tile.x, tile.y].outline.transform.position;
+        pos.z = -3.0f;
+        tiles[tile.x, tile.y].outline.transform.position = pos;
+    }
 
     public Vector2Int ToTileIndex2D(int ind) {
         return new Vector2Int(
@@ -124,6 +172,9 @@ public class HexGrid : MonoBehaviour {
             return 1.0f;
         }
 		if (type == TileType.FIRELINE) {
+            return 1.0f;
+        }
+		if (type == TileType.CITY) {
             return 1.0f;
         }
         if (type == TileType.BURNT) {
@@ -287,6 +338,29 @@ public class HexGrid : MonoBehaviour {
 				tiles[i, j].type = tileType;
 				tiles[i, j].gameObject = hex;
 				tiles[i, j].spriteRenderer = hexSprite;
+                tiles[i, j].outline = hex.transform.Find("Outline").gameObject;
+                LineRenderer outlineRenderer = tiles[i, j].outline
+                    .GetComponent<LineRenderer>();
+                // Fix lineRenderer width issues by creating duplicate points
+                int numPoints = outlineRenderer.positionCount;
+                List<Vector3> points = new List<Vector3>(numPoints * 2);
+                for (int p = 0; p < numPoints; p++) {
+                    int prevInd = p - 1;
+                    if (prevInd < 0) {
+                        prevInd += numPoints;
+                    }
+                    int nextInd = (p + 1) % numPoints;
+                    Vector3 prevPoint = outlineRenderer.GetPosition(prevInd);
+                    Vector3 point = outlineRenderer.GetPosition(p);
+                    Vector3 nextPoint = outlineRenderer.GetPosition(nextInd);
+                    points.Add(Vector3.Lerp(point, prevPoint, 0.05f));
+                    points.Add(Vector3.Lerp(point, nextPoint, 0.05f));
+                }
+                outlineRenderer.positionCount = points.Count;
+                outlineRenderer.SetPositions(points.ToArray());
+                tiles[i, j].outlineRenderer = outlineRenderer;
+                defaultOutlineColor = tiles[i, j].outlineRenderer.startColor;
+                defaultOutlineWidth = tiles[i, j].outlineRenderer.startWidth;
 
                 tiles[i, j].unit = null;
 				tiles[i, j].fire = null;

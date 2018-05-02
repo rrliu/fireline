@@ -152,9 +152,11 @@ public class MovementScript : MonoBehaviour {
 			UnitScript unitScript = hexGrid.tiles[unitTile.x, unitTile.y].unitScript;
             unitScript.DrawCommands(isSelected);
 		}
-		hexGrid.MultiplyTileColor(hovered, hoveredColor);
+		//hexGrid.MultiplyTileColor(hovered, hoveredColor);
+        hexGrid.AverageTileColorWith(hovered, hoveredColor);
 		if (selected != noSelection) {
-			hexGrid.MultiplyTileColor(selected, selectedColor);
+			//hexGrid.MultiplyTileColor(selected, selectedColor);
+            hexGrid.SetTileColor(selected, selectedColor);
 		}
 
 		if (Input.GetKeyDown(KeyCode.Space)) {

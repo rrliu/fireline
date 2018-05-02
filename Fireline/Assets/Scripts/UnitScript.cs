@@ -240,7 +240,7 @@ public class UnitScript : MonoBehaviour {
                 if (isSelected) {
                     outOfRangeColor = movementScript.outOfRangeColorFocus;
                 }
-                hexGrid.MultiplyTileColor(cmdStep.target, outOfRangeColor);
+                hexGrid.SetTileColor(cmdStep.target, outOfRangeColor);
             }
         }
         lineRenderer.positionCount = positions.Count;

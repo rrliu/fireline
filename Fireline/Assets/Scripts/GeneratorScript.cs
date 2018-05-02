@@ -9,7 +9,11 @@ public class GeneratorScript : MonoBehaviour {
 	public int radius;
 
 	public Sprite rivers;
+    public float riverThreshold;
 	public Sprite forests;
+    public float forestThreshold;
+	public Sprite cities;
+    public float cityThreshold;
 	public GameObject background;
 
     public bool cache;
@@ -60,20 +64,30 @@ public class GeneratorScript : MonoBehaviour {
 	}
 
     TileType[,] GenerateTiles() {
-		bool[,] isWater = GenerateSingleTileMask(rivers, start, radius, 0.1f);
-		bool[,] isForest = GenerateSingleTileMask(forests, start, radius, 0.1f);
+		bool[,] isWater = GenerateSingleTileMask(rivers,
+            start, radius, riverThreshold);
+		bool[,] isForest = GenerateSingleTileMask(forests,
+            start, radius, forestThreshold);
+		bool[,] isCity = GenerateSingleTileMask(cities, 
+            start, radius, cityThreshold);
 		int width = isWater.GetLength(0);
 		int height = isWater.GetLength(1);
+        Debug.Assert(width == isForest.GetLength(0));
+        Debug.Assert(width == isCity.GetLength(0));
+        Debug.Assert(height == isForest.GetLength(1));
+        Debug.Assert(height == isCity.GetLength(1));
 
 		TileType[,] tileTypes = new TileType[width, height];
 		for (int i = 0; i < width; i++) {
 			for (int j = 0; j < height; j++) {
-				if (isWater [i, j]) {
-					tileTypes [i, j] = TileType.WATER;
-				} else if (isForest [i, j]) {
-					tileTypes [i, j] = TileType.DENSEFOREST;
+				if (isWater[i, j]) {
+					tileTypes[i, j] = TileType.WATER;
+                } else if (isCity[i, j]) {
+					tileTypes[i, j] = TileType.CITY;
+				} else if (isForest[i, j]) {
+					tileTypes[i, j] = TileType.DENSEFOREST;
 				} else {
-					tileTypes [i, j] = TileType.GRASSLAND;
+					tileTypes[i, j] = TileType.GRASSLAND;
 				}
 			}
 		}
