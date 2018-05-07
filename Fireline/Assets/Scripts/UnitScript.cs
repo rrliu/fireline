@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public enum UnitType {
-    TEST,
+    TEST, // main unit
     TRUCK,
     NONE
 }
@@ -11,6 +11,7 @@ public enum UnitType {
 public enum UnitCommandType {
     MOVE,
     DIG,
+	EXTINGUISH,
     INVALID,
 	NONE
 }
@@ -59,6 +60,9 @@ public class UnitScript : MonoBehaviour {
         if (type == UnitCommandType.DIG) {
             return 1.0f;
         }
+		if (type == UnitCommandType.EXTINGUISH) {
+			return 1.0f;
+		}
 
         Debug.LogError("Unrecognized command type");
         return 0.0f;
@@ -69,7 +73,8 @@ public class UnitScript : MonoBehaviour {
 		float rangeRemaining = range;
 		Vector2Int currentUnitTile = tile;
 		bool isDead = false;
-		foreach (UnitCommandStep cmdStep in stepCommands) {
+		for (int i = 0; i < stepCommands.Count; i++) {
+			UnitCommandStep cmdStep = stepCommands[i];
 			if (cmdStep.removeMarker) {
 				// Remove command from commands list
 				UnitCommand toRemove;
@@ -77,11 +82,7 @@ public class UnitScript : MonoBehaviour {
 				toRemove.target = cmdStep.target;
 				commands.Remove(toRemove);
 				if (toRemove.type == UnitCommandType.DIG) {
-					Debug.Log ("disable shovel");
-					GameObject shovelIcon = hexGrid.tiles[toRemove.target.x, toRemove.target.y]
-						.gameObject.transform.Find("ShovelIcon").gameObject;
-					Debug.Log(shovelIcon.activeSelf);
-					shovelIcon.SetActive(false);
+					hexGrid.SetShovelActive(toRemove.target, false);
 				}
 				continue;
 			}
@@ -89,7 +90,23 @@ public class UnitScript : MonoBehaviour {
 			rangeRemaining -= cmdStep.cost;
 			if (rangeRemaining >= 0.0f) {
 				if (cmdStep.type == UnitCommandType.MOVE) {
-					if (hexGrid.tiles[cmdStep.target.x, cmdStep.target.y].fire != null) {
+					float range = rangeRemaining;
+					bool willExtinguish = false;
+					for (int j = i + 1; j < stepCommands.Count; j++) {
+						if (stepCommands[j].removeMarker) {
+							continue;
+						}
+						range -= stepCommands[j].cost;
+						if (range < 0.0f) {
+							break;
+						}
+						if (stepCommands[j].type == UnitCommandType.EXTINGUISH
+						&& stepCommands[j].target == cmdStep.target) {
+							willExtinguish = true;
+							break;
+						}
+					}
+					if (hexGrid.tiles[cmdStep.target.x, cmdStep.target.y].fire != null && !willExtinguish) {
 						hexGrid.MoveUnit(tile, currentUnitTile);
 						hexGrid.KillUnitAt(currentUnitTile);
 						isDead = true;
@@ -100,6 +117,9 @@ public class UnitScript : MonoBehaviour {
 				}
 				else if (cmdStep.type == UnitCommandType.DIG) {
 					hexGrid.ChangeTileTypeAt(cmdStep.target, TileType.FIRELINE);
+				}
+				else if (cmdStep.type == UnitCommandType.EXTINGUISH) {
+					hexGrid.PutOutFireIfExistsAt(cmdStep.target);
 				}
 				else if (cmdStep.type == UnitCommandType.INVALID) {
 					break;
@@ -140,10 +160,13 @@ public class UnitScript : MonoBehaviour {
 			}
 			else if (cmdStep.type == UnitCommandType.DIG) {
 				// draw shovel
-				TileInfo tileInfo = hexGrid.tiles[cmdStep.target.x, cmdStep.target.y];
-				tileInfo.gameObject.transform.Find("ShovelIcon").gameObject.SetActive(true);
-				/*hexGrid.SetTileColor(cmdStep.target,
-                    movementScript.digNextFocusColor);*/
+				hexGrid.SetShovelActive(cmdStep.target, true);
+				//TileInfo tileInfo = hexGrid.tiles[cmdStep.target.x, cmdStep.target.y];
+				//tileInfo.shovel.SetActive(true);
+			}
+			else if (cmdStep.type == UnitCommandType.EXTINGUISH) {
+				// draw thing
+				//hexGrid.SetShovelActive(cmdStep.target, true);
 			}
 			else if (cmdStep.type == UnitCommandType.INVALID) {
 				// draw red line or something
@@ -170,7 +193,8 @@ public class UnitScript : MonoBehaviour {
     // Append the given command to the list of step-by-step commands
     // Creates all the steps necessary to end at the command
     public void AppendToStepCommands(UnitCommand cmd) {
-		if (cmd.type == UnitCommandType.DIG) {
+		if (cmd.type == UnitCommandType.DIG
+		|| cmd.type == UnitCommandType.EXTINGUISH) {
 			UnitCommand moveCmd;
 			moveCmd.type = UnitCommandType.MOVE;
 			moveCmd.target = cmd.target;
@@ -183,7 +207,7 @@ public class UnitScript : MonoBehaviour {
         }
         
         if (cmd.type == UnitCommandType.MOVE) {
-            List<TileNode> path = hexGrid.GetShortestPath(prevTile, cmd.target);
+            List<TileNode> path = hexGrid.GetShortestPath(prevTile, cmd.target, type);
             if (path == null) {
                 UnitCommandStep cmdInvalid;
                 cmdInvalid.type = UnitCommandType.INVALID;
@@ -204,16 +228,25 @@ public class UnitScript : MonoBehaviour {
                     totalDist += cmdMoveStep.cost;
                 }
             }
-        }
-        else if (cmd.type == UnitCommandType.DIG) {
-            Debug.Assert(cmd.target == prevTile);
-            UnitCommandStep cmdDig;
-            cmdDig.type = UnitCommandType.DIG;
-            cmdDig.target = cmd.target;
-            cmdDig.cost = GetCommandTypeCost(UnitCommandType.DIG);
-            cmdDig.removeMarker = false;
-            stepCommands.Add(cmdDig);
-        }
+		}
+		else if (cmd.type == UnitCommandType.DIG) {
+			Debug.Assert(cmd.target == prevTile);
+			UnitCommandStep cmdDig;
+			cmdDig.type = UnitCommandType.DIG;
+			cmdDig.target = cmd.target;
+			cmdDig.cost = GetCommandTypeCost(UnitCommandType.DIG);
+			cmdDig.removeMarker = false;
+			stepCommands.Add(cmdDig);
+		}
+		else if (cmd.type == UnitCommandType.EXTINGUISH) {
+			Debug.Assert(cmd.target == prevTile);
+			UnitCommandStep cmdExtinguish;
+			cmdExtinguish.type = UnitCommandType.EXTINGUISH;
+			cmdExtinguish.target = cmd.target;
+			cmdExtinguish.cost = GetCommandTypeCost(UnitCommandType.EXTINGUISH);
+			cmdExtinguish.removeMarker = false;
+			stepCommands.Add(cmdExtinguish);
+		}
         else {
             Debug.LogError("Unhandled command");
         }
@@ -258,6 +291,9 @@ public class UnitScript : MonoBehaviour {
 		if (repeatCmd.type != UnitCommandType.NONE) {
 			// Remove repeat command
 			Debug.Log("repeat, remove");
+			if (repeatCmd.type == UnitCommandType.DIG) {
+				hexGrid.SetShovelActive(repeatCmd.target, false);
+			}
 			commands.Remove(repeatCmd);
 			UpdateStepCommands();
 		} else {
@@ -278,11 +314,16 @@ public class UnitScript : MonoBehaviour {
 
 			if (isInPath && command.type == UnitCommandType.MOVE) {
 				Debug.Log ("found, move");
-				commands.RemoveRange (commandsBefore, commands.Count - commandsBefore);
-				commands.Add (command);
-				UpdateStepCommands ();
-			} else if (isInPath && command.type == UnitCommandType.DIG) {
-				Debug.Log("found, dig");
+				for (int i = commandsBefore; i < commands.Count; i++) {
+					UnitCommand cmd = commands[i];
+					if (cmd.type == UnitCommandType.DIG) {
+						hexGrid.SetShovelActive(cmd.target, false);
+					}
+				}
+				commands.RemoveRange(commandsBefore, commands.Count - commandsBefore);
+				commands.Add(command);
+				UpdateStepCommands();
+			} else if (isInPath) {
 				commands.Insert(commandsBefore, command);
 				UpdateStepCommands();
 			} else {
@@ -296,9 +337,7 @@ public class UnitScript : MonoBehaviour {
     public void ClearCommands() {
         foreach (UnitCommand cmd in commands) {
             if (cmd.type == UnitCommandType.DIG) {
-                hexGrid.tiles[cmd.target.x, cmd.target.y]
-                    .gameObject.transform.Find("ShovelIcon")
-                    .gameObject.SetActive(false);
+				hexGrid.SetShovelActive(cmd.target, false);
             }
         }
         commands.Clear();

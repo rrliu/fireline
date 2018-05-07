@@ -21,6 +21,7 @@ public struct TileInfo {
 	public SpriteRenderer spriteRenderer;
     public GameObject outline;
     public LineRenderer outlineRenderer;
+	public GameObject shovel;
     // -----------------------------------------
 
 	// null if no unit
@@ -130,6 +131,10 @@ public class HexGrid : MonoBehaviour {
         tiles[tile.x, tile.y].outline.transform.position = pos;
     }
 
+	public void SetShovelActive(Vector2Int tile, bool isActive) {
+		tiles[tile.x, tile.y].shovel.SetActive(isActive);
+	}
+
     public Vector2Int ToTileIndex2D(int ind) {
         return new Vector2Int(
             ind % width,
@@ -155,7 +160,7 @@ public class HexGrid : MonoBehaviour {
 		return new Vector2(xOff + i * xStride, j * yStride);
 	}
 
-    float GetTileMoveWeight(Vector2Int tile) {
+	public float GetTileMoveWeight(Vector2Int tile, UnitType unitType) {
         TileInfo tileInfo = tiles[tile.x, tile.y];
         if (tileInfo.disabled) {
             return 0.0f;
@@ -183,6 +188,9 @@ public class HexGrid : MonoBehaviour {
 			return 1.5f;
 		}
 		if (type == TileType.DENSEFOREST) {
+			if (unitType == UnitType.TRUCK) {
+				return 0.0f;
+			}
 			return 2.0f;
 		}
 
@@ -287,6 +295,12 @@ public class HexGrid : MonoBehaviour {
         DebugValidateTileIndex(tile);
         int i = tile.x, j = tile.y;
         Debug.Assert(tiles[i, j].unit != null);
+		UnitScript unitScript = tiles [i, j].unitScript;
+		foreach (UnitCommand cmd in unitScript.commands) {
+			if (cmd.type == UnitCommandType.DIG) {
+				SetShovelActive(cmd.target, false);
+			}
+		}
         Destroy(tiles[i, j].unit);
         tiles[i, j].unit = null;
 		unitTiles.Remove(tile);
@@ -360,6 +374,7 @@ public class HexGrid : MonoBehaviour {
                 tiles[i, j].outlineRenderer = outlineRenderer;
                 defaultOutlineColor = tiles[i, j].outlineRenderer.startColor;
                 defaultOutlineWidth = tiles[i, j].outlineRenderer.startWidth;
+				tiles[i, j].shovel = hex.transform.Find("ShovelIcon").gameObject;
 
                 tiles[i, j].unit = null;
 				tiles[i, j].fire = null;
@@ -433,7 +448,7 @@ public class HexGrid : MonoBehaviour {
 	}
 
     // Returns shortest path from src to dst (not including src)
-	public List<TileNode> GetShortestPath(Vector2Int src, Vector2Int dst) {
+	public List<TileNode> GetShortestPath(Vector2Int src, Vector2Int dst, UnitType unitType) {
         float[,] distance = new float[width, height];
         Vector2Int[,] prev = new Vector2Int[width, height];
 		IndexMinPQ<float> minPQ = new IndexMinPQ<float>(width * height);
@@ -458,7 +473,7 @@ public class HexGrid : MonoBehaviour {
             Vector2Int[] neighbors = GetNeighbors(min);
             foreach (Vector2Int neighbor in neighbors) {
                 int neighborInd = ToTileIndex1D(neighbor);
-                float edgeDist = GetTileMoveWeight(neighbor);
+                float edgeDist = GetTileMoveWeight(neighbor, unitType);
                 if (minPQ.Contains(neighborInd) && edgeDist != 0.0f) {
                     float currentDist = minPQ.KeyOf(neighborInd);
                     if (dist + edgeDist < currentDist) {
@@ -489,7 +504,7 @@ public class HexGrid : MonoBehaviour {
         path.Reverse();
 		return path;
 	}
-	public List<TileNode> GetReachableTiles(Vector2Int start, float maxDist) {
+	public List<TileNode> GetReachableTiles(Vector2Int start, float maxDist, UnitType unitType) {
 		Hashtable visited = new Hashtable ();
 		Queue<TileNode> queue = new Queue<TileNode>();
         TileNode root;
@@ -510,7 +525,7 @@ public class HexGrid : MonoBehaviour {
 				}
 				Vector2Int[] neighbors = GetNeighbors(current.coords);
 				for (int i = 0; i < neighbors.Length; i++) {
-					float weight = GetTileMoveWeight(neighbors[i]);
+					float weight = GetTileMoveWeight(neighbors[i], unitType);
 					if (weight != 0.0f) {
                         TileNode node;
                         node.coords = neighbors[i];
@@ -538,11 +553,13 @@ public class HexGrid : MonoBehaviour {
         List<Vector2Int> oldUnitTiles = new List<Vector2Int>(unitTiles);
         foreach (Vector2Int tile in oldUnitTiles) {
             UnitScript unitScript = tiles[tile.x, tile.y].unitScript;
-            StartCoroutine(unitScript.ExecuteCommands());
-            while (!unitScript.doneMoving) {
-                yield return null;
-            }
-            yield return new WaitForSeconds(0.5f);
+			if (unitScript.commands.Count > 0) {
+				StartCoroutine(unitScript.ExecuteCommands());
+				while (!unitScript.doneMoving) {
+					yield return null;
+				}
+				yield return new WaitForSeconds(0.5f);
+			}
         }
 
         turnScript.doneWithUnits = true;
