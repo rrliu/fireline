@@ -20,8 +20,10 @@ public struct TileInfo {
 	public GameObject gameObject;
 	public SpriteRenderer spriteRenderer;
     public GameObject outline;
-    public LineRenderer outlineRenderer;
-	public GameObject shovel;
+	public LineRenderer outlineRenderer;
+	public GameObject moveIcon;
+	public GameObject shovelIcon;
+	public GameObject extinguishIcon;
     // -----------------------------------------
 
 	// null if no unit
@@ -131,8 +133,22 @@ public class HexGrid : MonoBehaviour {
         tiles[tile.x, tile.y].outline.transform.position = pos;
     }
 
-	public void SetShovelActive(Vector2Int tile, bool isActive) {
-		tiles[tile.x, tile.y].shovel.SetActive(isActive);
+//	public void SetShovelActive(Vector2Int tile, bool isActive) {
+//		tiles[tile.x, tile.y].shovelIcon.SetActive(isActive);
+//	}
+
+	public void SetIconActive(Vector2Int tile, UnitCommandType cmdType, bool activeness) {
+		switch (cmdType) {
+			case UnitCommandType.MOVE: {
+				//tiles[tile.x, tile.y].moveIcon.SetActive(activeness);
+			} break;
+			case UnitCommandType.DIG: {
+				tiles[tile.x, tile.y].shovelIcon.SetActive(activeness);
+			} break;
+			case UnitCommandType.EXTINGUISH: {
+				tiles[tile.x, tile.y].extinguishIcon.SetActive(activeness);
+			} break;
+		}
 	}
 
     public Vector2Int ToTileIndex2D(int ind) {
@@ -298,7 +314,7 @@ public class HexGrid : MonoBehaviour {
 		UnitScript unitScript = tiles [i, j].unitScript;
 		foreach (UnitCommand cmd in unitScript.commands) {
 			if (cmd.type == UnitCommandType.DIG) {
-				SetShovelActive(cmd.target, false);
+				SetIconActive(cmd.target, cmd.type, false);
 			}
 		}
         Destroy(tiles[i, j].unit);
@@ -373,8 +389,10 @@ public class HexGrid : MonoBehaviour {
                 outlineRenderer.SetPositions(points.ToArray());
                 tiles[i, j].outlineRenderer = outlineRenderer;
                 defaultOutlineColor = tiles[i, j].outlineRenderer.startColor;
-                defaultOutlineWidth = tiles[i, j].outlineRenderer.startWidth;
-				tiles[i, j].shovel = hex.transform.Find("ShovelIcon").gameObject;
+				defaultOutlineWidth = tiles[i, j].outlineRenderer.startWidth;
+				tiles[i, j].moveIcon = hex.transform.Find("MoveIcon").gameObject;
+				tiles[i, j].shovelIcon = hex.transform.Find("ShovelIcon").gameObject;
+				tiles[i, j].extinguishIcon = hex.transform.Find("ExtinguishIcon").gameObject;
 
                 tiles[i, j].unit = null;
 				tiles[i, j].fire = null;
