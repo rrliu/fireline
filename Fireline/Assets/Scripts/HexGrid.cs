@@ -140,7 +140,7 @@ public class HexGrid : MonoBehaviour {
 	public void SetIconActive(Vector2Int tile, UnitCommandType cmdType, bool activeness) {
 		switch (cmdType) {
 			case UnitCommandType.MOVE: {
-				//tiles[tile.x, tile.y].moveIcon.SetActive(activeness);
+				tiles[tile.x, tile.y].moveIcon.SetActive(activeness);
 			} break;
 			case UnitCommandType.DIG: {
 				tiles[tile.x, tile.y].shovelIcon.SetActive(activeness);
@@ -313,9 +313,7 @@ public class HexGrid : MonoBehaviour {
         Debug.Assert(tiles[i, j].unit != null);
 		UnitScript unitScript = tiles [i, j].unitScript;
 		foreach (UnitCommand cmd in unitScript.commands) {
-			if (cmd.type == UnitCommandType.DIG) {
-				SetIconActive(cmd.target, cmd.type, false);
-			}
+			SetIconActive(cmd.target, cmd.type, false);
 		}
         Destroy(tiles[i, j].unit);
         tiles[i, j].unit = null;

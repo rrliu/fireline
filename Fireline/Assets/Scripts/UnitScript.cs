@@ -73,6 +73,7 @@ public class UnitScript : MonoBehaviour {
 		float rangeRemaining = range;
 		Vector2Int currentUnitTile = tile;
 		bool isDead = false;
+		List<UnitCommand> cmdsToRemove = new List<UnitCommand>();
 		for (int i = 0; i < stepCommands.Count; i++) {
 			UnitCommandStep cmdStep = stepCommands[i];
 			if (cmdStep.removeMarker) {
@@ -80,13 +81,12 @@ public class UnitScript : MonoBehaviour {
 				UnitCommand toRemove;
 				toRemove.type = cmdStep.type;
 				toRemove.target = cmdStep.target;
-				commands.Remove(toRemove);
-				//if (toRemove.type == UnitCommandType.DIG) {
+				cmdsToRemove.Add(toRemove);
+				/*commands.Remove(toRemove);
 				Debug.Log("remove marker");
-				Debug.Log (toRemove.type);
-				Debug.Log (toRemove.target);
-					hexGrid.SetIconActive(toRemove.target, toRemove.type, false);
-				//}
+				Debug.Log(toRemove.type);
+				Debug.Log(toRemove.target);
+				hexGrid.SetIconActive(toRemove.target, toRemove.type, false);*/
 				continue;
 			}
 			yield return new WaitForSeconds(0.2f);
@@ -135,8 +135,12 @@ public class UnitScript : MonoBehaviour {
 		}
 		if (!isDead) {
 			hexGrid.MoveUnit(tile, currentUnitTile);
-			UpdateStepCommands();
 		}
+		foreach (UnitCommand toRemove in cmdsToRemove) {
+			commands.Remove(toRemove);
+			hexGrid.SetIconActive(toRemove.target, toRemove.type, false);
+		}
+		UpdateStepCommands();
 		doneMoving = true;
 	}
 
