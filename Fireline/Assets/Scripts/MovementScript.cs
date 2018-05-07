@@ -34,30 +34,90 @@ public class MovementScript : MonoBehaviour {
 		return ind;
 	}
 
-    bool IsTileWalkable(Vector2Int tile, UnitType unitType) {
-        TileInfo tileInfo = hexGrid.tiles[tile.x, tile.y];
-        if (tileInfo.unit == null
-        && tileInfo.type != TileType.WATER) {
-            return true;
-        }
+	bool IsTileWalkable(Vector2Int tile, Vector2Int unitTile) {
+		UnitType unitType = hexGrid.tiles[unitTile.x, unitTile.y].unitScript.type;
+		if (hexGrid.GetTileMoveWeight(tile, unitType) == 0.0f) {
+			return false;
+		}
+		TileInfo tileInfo = hexGrid.tiles[tile.x, tile.y];
+        if (tileInfo.unit != null) {
+            return false;
+		}
 
-        return false;
+		foreach (Vector2Int it in hexGrid.unitTiles) {
+			if (it == unitTile) {
+				continue;
+			}
+			UnitScript unitScript = hexGrid.tiles[it.x, it.y].unitScript;
+			foreach (UnitCommand cmd in unitScript.commands) {
+				if (cmd.target == tile) {
+					return false;
+				}
+			}
+		}
+
+        return true;
     }
 
-    bool IsTileDiggable(Vector2Int tile, UnitType unitType) {
-        if (unitType != UnitType.TEST) {
+	bool IsTileDiggable(Vector2Int tile, Vector2Int unitTile) {
+		if (!IsTileWalkable(tile, unitTile)) {
+			return false;
+		}
+		UnitType unitType = hexGrid.tiles[unitTile.x, unitTile.y].unitScript.type;
+		if (unitType != UnitType.TEST) {
+			return false;
+		}
+
+        TileInfo tileInfo = hexGrid.tiles[tile.x, tile.y];
+        if (tileInfo.fire != null
+        || tileInfo.type == TileType.WATER
+        || tileInfo.type == TileType.FIRELINE) {
             return false;
         }
 
-        TileInfo tileInfo = hexGrid.tiles[tile.x, tile.y];
-        if (tileInfo.fire == null
-        && tileInfo.type != TileType.WATER
-        && tileInfo.type != TileType.FIRELINE) {
-            return true;
-        }
+		foreach (Vector2Int it in hexGrid.unitTiles) {
+			if (it == unitTile) {
+				continue;
+			}
+			UnitScript unitScript = hexGrid.tiles[it.x, it.y].unitScript;
+			foreach (UnitCommand cmd in unitScript.commands) {
+				if (cmd.target == tile) {
+					return false;
+				}
+			}
+		}
 
-        return false;
+        return true;
     }
+
+	bool IsTileTruckable(Vector2Int tile, Vector2Int unitTile) {
+		if (!IsTileWalkable(tile, unitTile)) {
+			return false;
+		}
+		UnitType unitType = hexGrid.tiles[unitTile.x, unitTile.y].unitScript.type;
+		if (unitType != UnitType.TRUCK) {
+			return false;
+		}
+
+		TileInfo tileInfo = hexGrid.tiles[tile.x, tile.y];
+		if (tileInfo.fire == null) {
+			return false;
+		}
+
+		foreach (Vector2Int it in hexGrid.unitTiles) {
+			if (it == unitTile) {
+				continue;
+			}
+			UnitScript unitScript = hexGrid.tiles[it.x, it.y].unitScript;
+			foreach (UnitCommand cmd in unitScript.commands) {
+				if (cmd.target == tile) {
+					return false;
+				}
+			}
+		}
+
+		return true;
+	}
 
 	// Use this for initialization
 	void Start () {
@@ -89,9 +149,10 @@ public class MovementScript : MonoBehaviour {
 				&& hoveredTile.unit != null) {
 					// Select hovered tile
 					selected = hovered;
-					float range = hexGrid.tiles[selected.x, selected.y].unitScript.range;
+					UnitScript unitScript = hexGrid.tiles[selected.x, selected.y].unitScript;
+					float range = unitScript.range;
 					if (range > 0.0f) {
-						neighbors = hexGrid.GetReachableTiles(selected, range);
+						neighbors = hexGrid.GetReachableTiles(selected, range, unitScript.type);
 					} else {
 						neighbors = null;
 					}
@@ -108,30 +169,32 @@ public class MovementScript : MonoBehaviour {
             && hexGrid.tiles[selected.x, selected.y].unit != null) {
                 // Selection is a unit
                 TileInfo unitTile = hexGrid.tiles[selected.x, selected.y];
-                UnitType unitType = unitTile.unitScript.type;
+                //UnitType unitType = unitTile.unitScript.type;
 
-                if (Input.GetMouseButton(0)) {
+                if (Input.GetMouseButtonDown(0)) {
                     // Determine whether the unit can move to the target tile
-                    if (IsTileWalkable(hovered, unitType)) {
+                    if (IsTileWalkable(hovered, selected)) {
                         // Move the unit
                         UnitCommand moveCommand;
                         moveCommand.type = UnitCommandType.MOVE;
                         moveCommand.target = hovered;
-                        unitTile.unitScript.AddCommandIfNew(moveCommand);
+						unitTile.unitScript.SubmitCommand(moveCommand);
                     }
                 }
-                else if (Input.GetMouseButton(1)) {
+                else if (Input.GetMouseButtonDown(1)) {
                     // Determine whether the unit can dig the target tile
-                    if (IsTileDiggable(hovered, unitType)) {
-                        UnitCommand moveCommand;
-                        moveCommand.type = UnitCommandType.MOVE;
-                        moveCommand.target = hovered;
-                        unitTile.unitScript.AddCommandIfNew(moveCommand);
+					if (IsTileDiggable(hovered, selected)) {
                         UnitCommand digCommand;
                         digCommand.type = UnitCommandType.DIG;
                         digCommand.target = hovered;
-                        unitTile.unitScript.AddCommandIfNew(digCommand);
+						unitTile.unitScript.SubmitCommand(digCommand);
                     }
+					if (IsTileTruckable(hovered, selected)) {
+						UnitCommand extinguishCommand;
+						extinguishCommand.type = UnitCommandType.EXTINGUISH;
+						extinguishCommand.target = hovered;
+						unitTile.unitScript.SubmitCommand(extinguishCommand);
+					}
                 }
 
                 if (Input.GetKeyDown(KeyCode.Escape)) {

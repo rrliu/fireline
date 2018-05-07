@@ -20,7 +20,10 @@ public struct TileInfo {
 	public GameObject gameObject;
 	public SpriteRenderer spriteRenderer;
     public GameObject outline;
-    public LineRenderer outlineRenderer;
+	public LineRenderer outlineRenderer;
+	public GameObject moveIcon;
+	public GameObject shovelIcon;
+	public GameObject extinguishIcon;
     // -----------------------------------------
 
 	// null if no unit
@@ -130,13 +133,30 @@ public class HexGrid : MonoBehaviour {
         tiles[tile.x, tile.y].outline.transform.position = pos;
     }
 
+//	public void SetShovelActive(Vector2Int tile, bool isActive) {
+//		tiles[tile.x, tile.y].shovelIcon.SetActive(isActive);
+//	}
+
+	public void SetIconActive(Vector2Int tile, UnitCommandType cmdType, bool activeness) {
+		switch (cmdType) {
+			case UnitCommandType.MOVE: {
+				//tiles[tile.x, tile.y].moveIcon.SetActive(activeness);
+			} break;
+			case UnitCommandType.DIG: {
+				tiles[tile.x, tile.y].shovelIcon.SetActive(activeness);
+			} break;
+			case UnitCommandType.EXTINGUISH: {
+				tiles[tile.x, tile.y].extinguishIcon.SetActive(activeness);
+			} break;
+		}
+	}
+
     public Vector2Int ToTileIndex2D(int ind) {
         return new Vector2Int(
             ind % width,
             ind / width
         );
     }
-
     public int ToTileIndex1D(int i, int j) {
         DebugValidateTileIndex(new Vector2Int(i, j));
         return j * width + i;
@@ -156,7 +176,7 @@ public class HexGrid : MonoBehaviour {
 		return new Vector2(xOff + i * xStride, j * yStride);
 	}
 
-    float GetTileMoveWeight(Vector2Int tile) {
+	public float GetTileMoveWeight(Vector2Int tile, UnitType unitType) {
         TileInfo tileInfo = tiles[tile.x, tile.y];
         if (tileInfo.disabled) {
             return 0.0f;
@@ -184,6 +204,9 @@ public class HexGrid : MonoBehaviour {
 			return 1.5f;
 		}
 		if (type == TileType.DENSEFOREST) {
+			if (unitType == UnitType.TRUCK) {
+				return 0.0f;
+			}
 			return 2.0f;
 		}
 
@@ -288,6 +311,12 @@ public class HexGrid : MonoBehaviour {
         DebugValidateTileIndex(tile);
         int i = tile.x, j = tile.y;
         Debug.Assert(tiles[i, j].unit != null);
+		UnitScript unitScript = tiles [i, j].unitScript;
+		foreach (UnitCommand cmd in unitScript.commands) {
+			if (cmd.type == UnitCommandType.DIG) {
+				SetIconActive(cmd.target, cmd.type, false);
+			}
+		}
         Destroy(tiles[i, j].unit);
         tiles[i, j].unit = null;
 		unitTiles.Remove(tile);
@@ -360,7 +389,10 @@ public class HexGrid : MonoBehaviour {
                 outlineRenderer.SetPositions(points.ToArray());
                 tiles[i, j].outlineRenderer = outlineRenderer;
                 defaultOutlineColor = tiles[i, j].outlineRenderer.startColor;
-                defaultOutlineWidth = tiles[i, j].outlineRenderer.startWidth;
+				defaultOutlineWidth = tiles[i, j].outlineRenderer.startWidth;
+				tiles[i, j].moveIcon = hex.transform.Find("MoveIcon").gameObject;
+				tiles[i, j].shovelIcon = hex.transform.Find("ShovelIcon").gameObject;
+				tiles[i, j].extinguishIcon = hex.transform.Find("ExtinguishIcon").gameObject;
 
                 tiles[i, j].unit = null;
 				tiles[i, j].fire = null;
@@ -434,7 +466,7 @@ public class HexGrid : MonoBehaviour {
 	}
 
     // Returns shortest path from src to dst (not including src)
-	public List<TileNode> GetShortestPath(Vector2Int src, Vector2Int dst) {
+	public List<TileNode> GetShortestPath(Vector2Int src, Vector2Int dst, UnitType unitType) {
         float[,] distance = new float[width, height];
         Vector2Int[,] prev = new Vector2Int[width, height];
 		IndexMinPQ<float> minPQ = new IndexMinPQ<float>(width * height);
@@ -459,7 +491,7 @@ public class HexGrid : MonoBehaviour {
             Vector2Int[] neighbors = GetNeighbors(min);
             foreach (Vector2Int neighbor in neighbors) {
                 int neighborInd = ToTileIndex1D(neighbor);
-                float edgeDist = GetTileMoveWeight(neighbor);
+                float edgeDist = GetTileMoveWeight(neighbor, unitType);
                 if (minPQ.Contains(neighborInd) && edgeDist != 0.0f) {
                     float currentDist = minPQ.KeyOf(neighborInd);
                     if (dist + edgeDist < currentDist) {
@@ -490,7 +522,7 @@ public class HexGrid : MonoBehaviour {
         path.Reverse();
 		return path;
 	}
-	public List<TileNode> GetReachableTiles(Vector2Int start, float maxDist) {
+	public List<TileNode> GetReachableTiles(Vector2Int start, float maxDist, UnitType unitType) {
 		Hashtable visited = new Hashtable ();
 		Queue<TileNode> queue = new Queue<TileNode>();
         TileNode root;
@@ -511,7 +543,7 @@ public class HexGrid : MonoBehaviour {
 				}
 				Vector2Int[] neighbors = GetNeighbors(current.coords);
 				for (int i = 0; i < neighbors.Length; i++) {
-					float weight = GetTileMoveWeight(neighbors[i]);
+					float weight = GetTileMoveWeight(neighbors[i], unitType);
 					if (weight != 0.0f) {
                         TileNode node;
                         node.coords = neighbors[i];
@@ -539,11 +571,13 @@ public class HexGrid : MonoBehaviour {
         List<Vector2Int> oldUnitTiles = new List<Vector2Int>(unitTiles);
         foreach (Vector2Int tile in oldUnitTiles) {
             UnitScript unitScript = tiles[tile.x, tile.y].unitScript;
-            StartCoroutine(unitScript.ExecuteCommands());
-            while (!unitScript.doneMoving) {
-                yield return null;
-            }
-            yield return new WaitForSeconds(0.5f);
+			if (unitScript.commands.Count > 0) {
+				StartCoroutine(unitScript.ExecuteCommands());
+				while (!unitScript.doneMoving) {
+					yield return null;
+				}
+				yield return new WaitForSeconds(0.5f);
+			}
         }
 
         turnScript.doneWithUnits = true;
