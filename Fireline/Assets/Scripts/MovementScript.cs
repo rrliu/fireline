@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 [RequireComponent(typeof(HexGrid))]
 [RequireComponent(typeof(TurnScript))]
@@ -15,6 +16,8 @@ public class MovementScript : MonoBehaviour
     public Color unitLineColor;
     public Color unitLineColorFocus;
 
+    public GameObject buyUnitMenu;
+
     HexGrid hexGrid;
     TurnScript turnScript;
     GeneratorScript generatorScript;
@@ -22,6 +25,9 @@ public class MovementScript : MonoBehaviour
     Vector2Int noSelection = new Vector2Int(-1, -1);
     Vector2Int selected;
     List<TileNode> neighbors = null;
+
+    bool buyMenu = false;
+    Vector2Int campSelection;
 
     // Returns the index of the given tile in the neighbors list,
     // or -1 if it's not in the list.
@@ -63,7 +69,7 @@ public class MovementScript : MonoBehaviour
     }
 
     bool IsTileDiggable(Vector2Int tile, Vector2Int unitTile) {
-        if (!IsTileWalkable(tile, unitTile)) {
+        if (!IsTileWalkable(tile, unitTile) && tile != unitTile) {
             return false;
         }
         UnitType unitType = hexGrid.tiles[unitTile.x, unitTile.y].unitScript.type;
@@ -73,9 +79,10 @@ public class MovementScript : MonoBehaviour
 
         TileInfo tileInfo = hexGrid.tiles[tile.x, tile.y];
         if (tileInfo.fire != null
-            || tileInfo.type == TileType.WATER
-            || tileInfo.type == TileType.FIRELINE
-            || tileInfo.type == TileType.CITY_FIRELINE) {
+        || tileInfo.camp != null 
+        || tileInfo.type == TileType.WATER
+        || tileInfo.type == TileType.FIRELINE
+        || tileInfo.type == TileType.CITY_FIRELINE) {
             return false;
         }
 
@@ -123,9 +130,68 @@ public class MovementScript : MonoBehaviour
         return true;
     }
 
-    IEnumerator CreateUnitNextFrame(Vector2Int tile, UnitType unitType) {
+    int GetUnitCost(UnitType type) {
+        if (type == UnitType.TEST) {
+            return 500;
+        }
+        if (type == UnitType.TRUCK) {
+            return 1000;
+        }
+
+        Debug.LogError("unrecognized unit type");
+        return 0;
+    }
+
+    public void UpdateBuyButtonColors() {
+        Image unitImg = buyUnitMenu.transform.Find("BuyPanel/Person").GetComponent<Image>();
+        int unitCost = GetUnitCost(UnitType.TEST);
+        if (turnScript.money >= unitCost) {
+            unitImg.color = Color.white;
+        }
+        else {
+            unitImg.color = Color.red;
+        }
+        Image truckImg = buyUnitMenu.transform.Find("BuyPanel/Truck").GetComponent<Image>();
+        int truckCost = GetUnitCost(UnitType.TRUCK);
+        if (turnScript.money >= truckCost) {
+            truckImg.color = Color.white;
+        }
+        else {
+            truckImg.color = Color.red;
+        }
+    }
+    public void CloseBuyMenu() {
+        buyMenu = false;
+        buyUnitMenu.SetActive(false);
+    }
+    IEnumerator BuyUnitDelayed(Vector2Int tile, UnitType unitType) {
+        int cost = GetUnitCost(unitType);
+        if (turnScript.money >= cost) {
+            hexGrid.CreateUnitAt(tile, unitType);
+            turnScript.money -= cost;
+            turnScript.UpdateMoneyText();
+        }
+        else {
+            yield break;
+        }
         yield return null;
-        hexGrid.CreateUnitAt(tile, unitType);
+        CloseBuyMenu();
+    }
+    public void BuyNormalUnit() {
+        StartCoroutine(BuyUnitDelayed(campSelection, UnitType.TEST));
+    }
+    public void BuyTruck() {
+        StartCoroutine(BuyUnitDelayed(campSelection, UnitType.TRUCK));
+    }
+
+    void ClearNeighbors() {
+        if (neighbors != null) {
+            foreach (TileNode tile in neighbors) {
+                hexGrid.SetIconActiveAlpha(tile.coords, UnitCommandType.DIG, false, 1.0f);
+                hexGrid.SetIconActiveAlpha(tile.coords, UnitCommandType.EXTINGUISH, false, 1.0f);
+            }
+        }
+        neighbors = null;
     }
 
     // Use this for initialization
@@ -145,6 +211,10 @@ public class MovementScript : MonoBehaviour
         // If you want a tile to stay colored, you must set it every frame
         hexGrid.ClearTileColors();
 
+        if (buyMenu) {
+            return;
+        }
+
         Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         Vector2Int hovered = hexGrid.GetClosestTileIndex(mousePos);
         TileInfo hoveredTile = hexGrid.tiles[hovered.x, hovered.y];
@@ -152,9 +222,9 @@ public class MovementScript : MonoBehaviour
         if (turnScript.playerTurn) {
             // Click event
             if (Input.GetMouseButtonDown(0)) {
-//				Debug.Log("You clicked on: " + hovered.ToString());
-//                Debug.Log ("Type: "
-//                    + hoveredTile.type.ToString ());
+				Debug.Log("You clicked on: " + hovered.ToString());
+                Debug.Log ("Type: "
+                    + hoveredTile.type.ToString ());
 
                 // Conditions for selection to be possible
                 if (selected != hovered
@@ -169,13 +239,15 @@ public class MovementScript : MonoBehaviour
                             neighbors = hexGrid.GetReachableTiles(selected, range, unitScript.type);
                         }
                         else {
-                            neighbors = null;
+                            ClearNeighbors();
                         }
                     }
                     else if (hoveredTile.camp != null) {
-                        Debug.Log("show menu here");
-                        //hexGrid.CreateUnitAt(selected, UnitType.TEST);
-                        StartCoroutine(CreateUnitNextFrame(selected, UnitType.TEST));
+                        buyMenu = true;
+                        ClearNeighbors();
+                        UpdateBuyButtonColors();
+                        buyUnitMenu.SetActive(true);
+                        campSelection = selected;
                         selected = noSelection;
                     }
                 }
@@ -184,7 +256,7 @@ public class MovementScript : MonoBehaviour
                     // Clear selection
                     selected = noSelection;
                     if (neighbors != null) {
-                        neighbors = null;
+                        ClearNeighbors();
                     }
                 }
             }
@@ -229,6 +301,14 @@ public class MovementScript : MonoBehaviour
             if (neighbors != null) {
                 foreach (TileNode tile in neighbors) {
                     hexGrid.SetTileColor(tile.coords, neighborsColor);
+                    UnitScript unitScript = hexGrid.tiles[selected.x, selected.y].unitScript;
+                    float range = unitScript.range;
+                    UnitType unitType = unitScript.type;
+                    if (unitType == UnitType.TEST) {
+                        if (tile.dist + UnitScript.GetCommandTypeCost(UnitCommandType.DIG) <= range) {
+                            hexGrid.SetIconActiveAlpha(tile.coords, UnitCommandType.DIG, true, 0.4f);
+                        }
+                    }
                 }
             }
         }
@@ -249,7 +329,7 @@ public class MovementScript : MonoBehaviour
             // TODO janky for now
             // Deselect everything
             selected = noSelection;
-            neighbors = null;
+            ClearNeighbors();
         }
     }
 }

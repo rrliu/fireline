@@ -5,6 +5,8 @@ using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
 using UnityEngine.UI;
 
+[RequireComponent(typeof(HexGrid))]
+[RequireComponent(typeof(TurnScript))]
 public class GeneratorScript : MonoBehaviour
 {
     public Vector2Int start;
@@ -17,8 +19,6 @@ public class GeneratorScript : MonoBehaviour
     public Sprite cities;
     public float cityThreshold;
     public GameObject background;
-
-    public Text loadingText;
 
     public bool cache;
 
@@ -144,16 +144,11 @@ public class GeneratorScript : MonoBehaviour
         tileTypes = LoadTilesRelease();
         #endif
 
-        //loadingText.text = "D O N E";
-        loaded = true;
-
         HexGrid hexGrid = gameObject.GetComponent<HexGrid>();
         hexGrid.GenerateGrid(tileTypes);
 
         int pixWidth = rivers.texture.width;
         int pixHeight = rivers.texture.height;
-        //float error = 1.03f;
-        //error = 1.0f;
         Vector3 backgroundScale = new Vector3(
             1.0f / (2.0f * radius),
             1.0f / (2.0f * radius),
@@ -169,6 +164,11 @@ public class GeneratorScript : MonoBehaviour
         background.transform.position = backgroundPos;
         background.transform.localScale = backgroundScale;
         background.SetActive(true);
+
+        TurnScript turnScript = gameObject.GetComponent<TurnScript>();
+        StartCoroutine(turnScript.PlaceCamps());
+
+        loaded = true;
     }
 
     // Use this for initialization

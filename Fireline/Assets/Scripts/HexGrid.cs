@@ -24,8 +24,11 @@ public struct TileInfo
     public GameObject outline;
     public LineRenderer outlineRenderer;
     public GameObject moveIcon;
+    public SpriteRenderer moveIconSR;
     public GameObject shovelIcon;
+    public SpriteRenderer shovelIconSR;
     public GameObject extinguishIcon;
+    public SpriteRenderer extinguishIconSR;
     public List<GameObject> trees;
     public List<GameObject> buildings;
     // -----------------------------------------
@@ -150,25 +153,48 @@ public class HexGrid : MonoBehaviour
         tiles[tile.x, tile.y].outline.transform.position = pos;
     }
 
-    //	public void SetShovelActive(Vector2Int tile, bool isActive) {
-    //		tiles[tile.x, tile.y].shovelIcon.SetActive(isActive);
-    //	}
-
     public void SetIconActive(Vector2Int tile, UnitCommandType cmdType, bool activeness) {
         switch (cmdType) {
         case UnitCommandType.MOVE:
             {
                 tiles[tile.x, tile.y].moveIcon.SetActive(activeness);
+                tiles[tile.x, tile.y].moveIconSR.color = Color.white;
             }
             break;
         case UnitCommandType.DIG:
             {
                 tiles[tile.x, tile.y].shovelIcon.SetActive(activeness);
+                tiles[tile.x, tile.y].shovelIconSR.color = Color.white;
             }
             break;
         case UnitCommandType.EXTINGUISH:
             {
                 tiles[tile.x, tile.y].extinguishIcon.SetActive(activeness);
+                tiles[tile.x, tile.y].extinguishIconSR.color = Color.white;
+            }
+            break;
+        }
+    }
+    public void SetIconActiveAlpha(Vector2Int tile, UnitCommandType cmdType, bool activeness, float alpha) {
+        Color color = Color.white;
+        color.a = alpha;
+        switch (cmdType) {
+        case UnitCommandType.MOVE:
+            {
+                tiles[tile.x, tile.y].moveIcon.SetActive(activeness);
+                tiles[tile.x, tile.y].moveIconSR.color = color;
+            }
+            break;
+        case UnitCommandType.DIG:
+            {
+                tiles[tile.x, tile.y].shovelIcon.SetActive(activeness);
+                tiles[tile.x, tile.y].shovelIconSR.color = color;
+            }
+            break;
+        case UnitCommandType.EXTINGUISH:
+            {
+                tiles[tile.x, tile.y].extinguishIcon.SetActive(activeness);
+                tiles[tile.x, tile.y].extinguishIconSR.color = color;
             }
             break;
         }
@@ -301,6 +327,12 @@ public class HexGrid : MonoBehaviour
         tiles[i, j].type = newType;
         tiles[i, j].spriteRenderer.sprite = tileSprites[(int)newType];
 
+        if (newType == TileType.FIRELINE) {
+            foreach (GameObject tree in tiles[i, j].trees) {
+                Animator treeAnimator = tree.GetComponent<Animator>();
+                treeAnimator.SetBool("burnt", true);
+            }
+        }
         if (newType == TileType.CITY_FIRELINE) {
             foreach (GameObject bldg in tiles[i, j].buildings) {
                 Animator bldgAnimator = bldg.GetComponent<Animator>();
@@ -448,12 +480,16 @@ public class HexGrid : MonoBehaviour
                 }
                 outlineRenderer.positionCount = points.Count;
                 outlineRenderer.SetPositions(points.ToArray());
+
                 tiles[i, j].outlineRenderer = outlineRenderer;
                 defaultOutlineColor = tiles[i, j].outlineRenderer.startColor;
                 defaultOutlineWidth = tiles[i, j].outlineRenderer.startWidth;
                 tiles[i, j].moveIcon = hex.transform.Find("MoveIcon").gameObject;
+                tiles[i, j].moveIconSR = tiles[i, j].moveIcon.GetComponent<SpriteRenderer>();
                 tiles[i, j].shovelIcon = hex.transform.Find("ShovelIcon").gameObject;
+                tiles[i, j].shovelIconSR = tiles[i, j].shovelIcon.GetComponent<SpriteRenderer>();
                 tiles[i, j].extinguishIcon = hex.transform.Find("ExtinguishIcon").gameObject;
+                tiles[i, j].extinguishIconSR = tiles[i, j].extinguishIcon.GetComponent<SpriteRenderer>();
                 tiles[i, j].trees = new List<GameObject>();
                 tiles[i, j].buildings = new List<GameObject>();
 
@@ -464,11 +500,11 @@ public class HexGrid : MonoBehaviour
                     && enabledMin.y <= j && j < enabledMin.y + enabledSize.y) {
                     tiles[i, j].disabled = false;
                 }
-                if (tileType == TileType.FOREST) {
+                /*if (tileType == TileType.FOREST) {
                     if (Random.Range(0.0f, 1.0f) < 0.05f) {
                         CreateFireAt(new Vector2Int(i, j));
                     }
-                }
+                }*/
             }
         }
 
@@ -518,15 +554,14 @@ public class HexGrid : MonoBehaviour
             }
         }
 
-        CreateUnitAt(new Vector2Int(11, 37), UnitType.TEST);
-        CreateUnitAt(new Vector2Int(12, 37), UnitType.TEST);
-        CreateUnitAt(new Vector2Int(12, 38), UnitType.TRUCK);
+        //CreateUnitAt(new Vector2Int(11, 37), UnitType.TEST);
+        //CreateUnitAt(new Vector2Int(12, 37), UnitType.TEST);
+        //CreateUnitAt(new Vector2Int(12, 38), UnitType.TRUCK);
 
-        CreateCampAt(new Vector2Int(12, 40));
+        //CreateCampAt(new Vector2Int(12, 40));
 
-        CreateFireAt(new Vector2Int(11, 31));
-        CreateFireAt(new Vector2Int(40, 45));
-        CreateFireAt(new Vector2Int(46, 41));
+        CreateFireAt(new Vector2Int(8, 35));
+        CreateFireAt(new Vector2Int(18, 40));
     }
 
     Vector2Int[] GetNeighbors(Vector2Int node) {
@@ -725,6 +760,7 @@ public class HexGrid : MonoBehaviour
             for (int i = 0; i < neighbors.Length; i++) {
                 TileInfo neighborInfo = tiles[neighbors[i].x, neighbors[i].y];
                 if (neighborInfo.fire == null
+                    && !neighborInfo.disabled
                     && neighborInfo.type != TileType.WATER
                     && neighborInfo.type != TileType.FIRELINE
                     && neighborInfo.type != TileType.CITY_FIRELINE

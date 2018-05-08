@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(HexGrid))]
@@ -11,16 +12,40 @@ public class TurnScript : MonoBehaviour
     public Text moneyText;
     public Text incomeText;
     public int money;
+    public GameObject placeCampsPrompt;
     [HideInInspector] public bool playerTurn;
 
     HexGrid hexGrid;
     bool turnTransition = false;
 
-    void UpdateIncomeText(int income) {
-        incomeText.text = "(+ $ " + income.ToString() + ")";
+    public IEnumerator PlaceCamps() {
+        placeCampsPrompt.SetActive(true);
+        int campsPlaced = 0;
+        while (campsPlaced < 2) {
+            Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+            Vector2Int hovered = hexGrid.GetClosestTileIndex(mousePos);
+            TileInfo hoveredTile = hexGrid.tiles[hovered.x, hovered.y];
+            if (Input.GetMouseButtonDown(0)
+            && hoveredTile.type == TileType.CITY
+            && hoveredTile.camp == null) {
+                hexGrid.CreateCampAt(hovered);
+                campsPlaced++;
+            }
+            yield return null;
+        }
+        placeCampsPrompt.SetActive(false);
+
+        moneyText.transform.parent.gameObject.SetActive(true);
+        UpdateMoneyText();
+        UpdateIncomeText(CalcIncome());
+        playerTurn = true;
     }
 
-    void UpdateMoneyText() {
+    void UpdateIncomeText(int income) {
+        incomeText.text = "Next Income: $ " + income.ToString();
+    }
+
+    public void UpdateMoneyText() {
         moneyText.text = "$ " + money.ToString();
     }
 
@@ -57,10 +82,10 @@ public class TurnScript : MonoBehaviour
         int height = hexGrid.tiles.GetLength(1);
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                if (hexGrid.tiles[i, j].unit != null) {
+                /*if (hexGrid.tiles[i, j].unit != null) {
                     hexGrid.tiles[i, j].unitScript.rangeRemaining =
 						hexGrid.tiles[i, j].unitScript.range;
-                }
+                }*/
             }
         }
     }
@@ -101,22 +126,16 @@ public class TurnScript : MonoBehaviour
     // Use this for initialization
     void Start() {
         hexGrid = GetComponent<HexGrid>();
-        UpdateMoneyText();
-        UpdateIncomeText(CalcIncome());
-        playerTurn = true;
     }
 	
     // Update is called once per frame
     void Update() {
-        if (Input.GetKeyDown(KeyCode.Space)) {
-            if (playerTurn) {
-                playerTurn = false;
-                //Debug.Log ("End turn");
-            }
-
-            if (!playerTurn && !turnTransition) {
-                StartCoroutine(NextTurnCoroutine());
-            }
+        if (Input.GetKeyDown(KeyCode.R)) {
+            // Reload the game
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        }
+        if (Input.GetKeyDown(KeyCode.Space) && playerTurn && !turnTransition) {
+            StartCoroutine(NextTurnCoroutine());
         }
     }
 }

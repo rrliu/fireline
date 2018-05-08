@@ -30,7 +30,6 @@ public class UnitScript : MonoBehaviour
 {
     public UnitType type;
     public float range;
-    [HideInInspector] public float rangeRemaining;
     
     // List of player-issued commands
     [HideInInspector] public List<UnitCommand> commands
@@ -142,7 +141,25 @@ public class UnitScript : MonoBehaviour
             transform.position = hexGrid.TileIndicesToPos(currentUnitTile.x, currentUnitTile.y);
         }
         if (!isDead) {
-            hexGrid.MoveUnit(tile, currentUnitTile);
+            if (hexGrid.tiles[currentUnitTile.x, currentUnitTile.y].unit != null) {
+                // Unit in destination tile already: move to the closest tile (YOLO)
+                Debug.Log("occupied end tile, recalculating...");
+                List<TileNode> neighbors = hexGrid.GetReachableTiles(currentUnitTile, 3.0f, type);
+                float minDist = float.PositiveInfinity;
+                int minTileInd = -1;
+                for (int i = 0; i < neighbors.Count; i++) {
+                    TileInfo nInfo = hexGrid.tiles[neighbors[i].coords.x, neighbors[i].coords.y];
+                    if (nInfo.unit == null && neighbors[i].dist < minDist) {
+                        minDist = neighbors[i].dist;
+                        minTileInd = i;
+                    }
+                }
+                hexGrid.MoveUnit(tile, neighbors[minTileInd].coords);
+            }
+            else {
+                Debug.Log("moved unit");
+                hexGrid.MoveUnit(tile, currentUnitTile);
+            }
         }
         foreach (UnitCommand toRemove in cmdsToRemove) {
             commands.Remove(toRemove);
@@ -278,6 +295,15 @@ public class UnitScript : MonoBehaviour
         }
     }
 
+    List<UnitCommand> GetCommandsWithTarget(List<UnitCommand> commands, Vector2Int target) {
+        List<UnitCommand> result = new List<UnitCommand>();
+        foreach (UnitCommand cmd in commands) {
+            if (cmd.target == target) {
+                result.Add(cmd);
+            }
+        }
+        return result;
+    }
     UnitCommand GetCommandWithTarget(List<UnitCommand> commands, Vector2Int target) {
         UnitCommand result;
         result.type = UnitCommandType.NONE;
@@ -293,11 +319,21 @@ public class UnitScript : MonoBehaviour
     // Submit the command (add or remove)
     public void SubmitCommand(UnitCommand command) {
         //Debug.Log("submitted: type " + command.type.ToString ());
-        UnitCommand repeatCmd = GetCommandWithTarget(commands, command.target);
+        /* Old single-repeat command
+         * UnitCommand repeatCmd = GetCommandWithTarget(commands, command.target);
         if (repeatCmd.type != UnitCommandType.NONE) {
             // Remove repeat command
             hexGrid.SetIconActive(repeatCmd.target, repeatCmd.type, false);
             commands.Remove(repeatCmd);
+            UpdateStepCommands();
+        }*/
+        List<UnitCommand> repeatCmds = GetCommandsWithTarget(commands, command.target);
+        if (repeatCmds.Count > 0) {
+            // Remove repeat commands
+            foreach (UnitCommand repeatCmd in repeatCmds) {
+                hexGrid.SetIconActive(repeatCmd.target, repeatCmd.type, false);
+                commands.Remove(repeatCmd);
+            }
             UpdateStepCommands();
         }
         else {
@@ -349,7 +385,6 @@ public class UnitScript : MonoBehaviour
         hexGrid = GameObject.Find("HexGrid").GetComponent<HexGrid>();
         movementScript = GameObject.Find("HexGrid").GetComponent<MovementScript>();
         lineRenderer = GetComponent<LineRenderer>();
-        rangeRemaining = range;
     }
 	
     // Update is called once per frame
