@@ -85,7 +85,7 @@ public class GeneratorScript : MonoBehaviour {
                 } else if (isCity[i, j]) {
 					tileTypes[i, j] = TileType.CITY;
 				} else if (isForest[i, j]) {
-					tileTypes[i, j] = TileType.DENSEFOREST;
+					tileTypes[i, j] = TileType.FOREST;
 				} else {
 					tileTypes[i, j] = TileType.GRASSLAND;
 				}

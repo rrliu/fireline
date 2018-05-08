@@ -251,17 +251,19 @@ MonoBehaviour:
   firePrefab: {fileID: 1492990784280068, guid: e1848c832e700e144b0659edc642341f, type: 2}
   fireSpreadChance: 0.25
   tileSprites:
-  - {fileID: 21300000, guid: d7f7bec52055347d4aec2bff2d1f7dbb, type: 3}
-  - {fileID: 21300000, guid: d15c3a426e38e495f8977d017ec04a6f, type: 3}
-  - {fileID: 21300000, guid: fa82a11865384485c9bc358905ab681d, type: 3}
-  - {fileID: 21300000, guid: d65cec1b18f914c78b236b4595651553, type: 3}
-  - {fileID: 21300000, guid: a2134ef77650db74d92049992bfa2c1b, type: 3}
-  - {fileID: 21300000, guid: d7f7bec52055347d4aec2bff2d1f7dbb, type: 3}
-  - {fileID: 21300000, guid: d15c3a426e38e495f8977d017ec04a6f, type: 3}
+  - {fileID: 21300000, guid: 9de8079ac9e07450d915fe20bc8cacba, type: 3}
+  - {fileID: 21300000, guid: 9de8079ac9e07450d915fe20bc8cacba, type: 3}
+  - {fileID: 21300000, guid: 2dfe332c6ee5c428cb8db7dcbe6d35f3, type: 3}
+  - {fileID: 21300000, guid: 5dcc67b2e8ab74d09ba4166de093007a, type: 3}
+  - {fileID: 21300000, guid: 9de8079ac9e07450d915fe20bc8cacba, type: 3}
+  - {fileID: 21300000, guid: 94cd42a126f084ddd8fdc3a07ab3dcd3, type: 3}
   waterOutlineColor: {r: 0.0627451, g: 0.5019608, b: 0.8705883, a: 0}
   unitPrefabs:
   - {fileID: 1008886686332874, guid: cf83a844cd432524ba1a5e87adbdeb15, type: 2}
   - {fileID: 1004265654236912, guid: 4dc5d75f0fab4d74aadcb23a5a36276b, type: 2}
+  treePrefab: {fileID: 1387969978773754, guid: ecefefd49bd7c498f88d452b55ca1734, type: 2}
+  treesX: 200
+  treesY: 200
   enabledMin: {x: 3, y: 32}
   enabledSize: {x: 17, y: 17}
   deathSplat: {fileID: 1986432947}

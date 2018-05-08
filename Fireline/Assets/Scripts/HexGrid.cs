@@ -6,7 +6,6 @@ using UnityEngine;
 public enum TileType {
 	GRASSLAND,
 	FOREST,
-	DENSEFOREST,
 	BURNT,
 	FIRELINE,
 	WATER,
@@ -50,6 +49,9 @@ public class HexGrid : MonoBehaviour {
 	public Sprite[] tileSprites;
     public Color waterOutlineColor;
 	public GameObject[] unitPrefabs;
+	public GameObject treePrefab;
+	public int treesX;
+	public int treesY;
 
 	public Vector2Int enabledMin;
 	public Vector2Int enabledSize;
@@ -201,9 +203,6 @@ public class HexGrid : MonoBehaviour {
 			return 1.0f;
 		}
 		if (type == TileType.FOREST) {
-			return 1.5f;
-		}
-		if (type == TileType.DENSEFOREST) {
 			if (unitType == UnitType.TRUCK) {
 				return 0.0f;
 			}
@@ -399,13 +398,50 @@ public class HexGrid : MonoBehaviour {
 				&& enabledMin.y <= j && j < enabledMin.y + enabledSize.y) {
 					tiles [i, j].disabled = false;
 				}
-                if (tileType == TileType.DENSEFOREST) {
+                if (tileType == TileType.FOREST) {
                     if (Random.Range(0.0f, 1.0f) < 0.05f) {
                         CreateFireAt(new Vector2Int(i, j));
                     }
                 }
 			}
 		}
+
+		Vector2 minPos = TileIndicesToPos(0, 0);
+		Vector2 maxPos = TileIndicesToPos(width - 1, height - 1);
+		float spacingX = (maxPos.x - minPos.x) / treesX;
+		float spacingY = (maxPos.y - minPos.y) / treesY;
+
+		for (int i = 0; i < treesX; i++) {
+			for (int j = 0; j < treesY; j++) {
+				Vector2 randPos = new Vector2 (
+					Mathf.Lerp(minPos.x, maxPos.x, (float)i / (treesX - 1)),
+					Mathf.Lerp(minPos.y, maxPos.y, (float)j / (treesY - 1))
+				);
+				randPos.x += Random.Range(-spacingX / 2.0f, spacingX / 2.0f);
+				randPos.y += Random.Range(-spacingY / 2.0f, spacingY / 2.0f);
+				Vector2Int closest = GetClosestTileIndex(randPos);
+				if (tiles [closest.x, closest.y].type == TileType.FOREST) {
+					GameObject tree = Instantiate (treePrefab,
+						randPos, Quaternion.identity, transform);
+					Animator treeAnimator = tree.GetComponent<Animator> ();
+					treeAnimator.SetInteger ("variation", Random.Range (0, 3));
+				}
+			}
+		}
+
+//		for (int i = 0; i < numTrees; i++) {
+//			Vector2 randPos = new Vector3 (
+//				Random.Range(minPos.x, maxPos.x),
+//				Random.Range(minPos.y, maxPos.y)
+//			);
+//			Vector2Int closest = GetClosestTileIndex(randPos);
+//			if (tiles [closest.x, closest.y].type == TileType.FOREST) {
+//				GameObject tree = Instantiate (treePrefab,
+//					randPos, Quaternion.identity, transform);
+//				Animator treeAnimator = tree.GetComponent<Animator> ();
+//				treeAnimator.SetInteger ("variation", Random.Range (0, 3));
+//			}
+//		}
 
         CreateUnitAt(new Vector2Int(11, 37), UnitType.TEST);
         CreateUnitAt(new Vector2Int(12, 37), UnitType.TEST);
