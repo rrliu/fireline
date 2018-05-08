@@ -10,6 +10,7 @@ public enum TileType {
 	FIRELINE,
 	WATER,
 	CITY,
+	CITY_FIRELINE,
 	NONE
 }
 
@@ -23,11 +24,16 @@ public struct TileInfo {
 	public GameObject moveIcon;
 	public GameObject shovelIcon;
 	public GameObject extinguishIcon;
+	public List<GameObject> trees;
+	public List<GameObject> buildings;
     // -----------------------------------------
 
 	// null if no unit
 	public GameObject unit;
 	public UnitScript unitScript;
+
+	// null if no camp
+	public GameObject camp;
 
 	// null if no fire
 	public GameObject fire;
@@ -52,6 +58,10 @@ public class HexGrid : MonoBehaviour {
 	public GameObject treePrefab;
 	public int treesX;
 	public int treesY;
+	public GameObject buildingPrefab;
+	public int buildingsX;
+	public int buildingsY;
+	public GameObject campPrefab;
 
 	public Vector2Int enabledMin;
 	public Vector2Int enabledSize;
@@ -59,8 +69,9 @@ public class HexGrid : MonoBehaviour {
     public Animator deathSplat;
 
 	[HideInInspector] public TileInfo[,] tiles;
-    int width, height;
-    [HideInInspector] public List<Vector2Int> unitTiles = new List<Vector2Int>();
+	int width, height;
+	[HideInInspector] public List<Vector2Int> unitTiles = new List<Vector2Int>();
+	[HideInInspector] public List<Vector2Int> campTiles = new List<Vector2Int>();
     [HideInInspector] public List<Vector2Int> onFire = new List<Vector2Int>();
 
     Color defaultOutlineColor;
@@ -192,10 +203,13 @@ public class HexGrid : MonoBehaviour {
 		}
 		if (type == TileType.GRASSLAND) {
             return 1.0f;
-        }
+		}
 		if (type == TileType.FIRELINE) {
-            return 1.0f;
-        }
+			return 1.0f;
+		}
+		if (type == TileType.CITY_FIRELINE) {
+			return 1.0f;
+		}
 		if (type == TileType.CITY) {
             return 1.0f;
         }
@@ -271,6 +285,13 @@ public class HexGrid : MonoBehaviour {
         int i = tile.x, j = tile.y;
         tiles[i, j].type = newType;
         tiles[i, j].spriteRenderer.sprite = tileSprites[(int)newType];
+
+		if (newType == TileType.CITY_FIRELINE) {
+			foreach (GameObject bldg in tiles[i, j].buildings) {
+				Animator bldgAnimator = bldg.GetComponent<Animator>();
+				bldgAnimator.SetBool("burnt", true);
+			}
+		}
     }
 
     public void CreateUnitAt(Vector2Int tile, UnitType unitType) {
@@ -320,6 +341,26 @@ public class HexGrid : MonoBehaviour {
 		deathSplat.SetTrigger("splat");
     }
 
+	public void CreateCampAt(Vector2Int tile) {
+		DebugValidateTileIndex(tile);
+		int i = tile.x, j = tile.y;
+		GameObject camp = Instantiate(campPrefab,
+			tiles[i, j].gameObject.transform.position,
+			Quaternion.identity, transform);
+		tiles[i, j].camp = camp;
+		campTiles.Add(tile);
+	}
+
+	public void DestroyCampAt(Vector2Int tile) {
+		DebugValidateTileIndex(tile);
+		int i = tile.x, j = tile.y;
+		Debug.Assert(tiles[i, j].camp != null);
+		Destroy(tiles[i, j].camp);
+		tiles[i, j].camp = null;
+		campTiles.Remove(tile);
+		deathSplat.SetTrigger("splat");
+	}
+
     public void CreateFireAt(Vector2Int tile) {
         DebugValidateTileIndex(tile);
         int i = tile.x, j = tile.y;
@@ -338,7 +379,15 @@ public class HexGrid : MonoBehaviour {
             ChangeTileTypeAt(tile, TileType.BURNT);
             Destroy(tiles[i, j].fire);
             tiles[i, j].fire = null;
-            onFire.Remove(tile);
+			onFire.Remove(tile);
+			foreach (GameObject tree in tiles[i, j].trees) {
+				Animator treeAnimator = tree.GetComponent<Animator>();
+				treeAnimator.SetBool("burnt", true);
+			}
+			foreach (GameObject bldg in tiles[i, j].buildings) {
+				Animator bldgAnimator = bldg.GetComponent<Animator>();
+				bldgAnimator.SetBool("burnt", true);
+			}
         }
     }
 
@@ -390,6 +439,8 @@ public class HexGrid : MonoBehaviour {
 				tiles[i, j].moveIcon = hex.transform.Find("MoveIcon").gameObject;
 				tiles[i, j].shovelIcon = hex.transform.Find("ShovelIcon").gameObject;
 				tiles[i, j].extinguishIcon = hex.transform.Find("ExtinguishIcon").gameObject;
+				tiles[i, j].trees = new List<GameObject>();
+				tiles[i, j].buildings = new List<GameObject>();
 
                 tiles[i, j].unit = null;
 				tiles[i, j].fire = null;
@@ -410,7 +461,6 @@ public class HexGrid : MonoBehaviour {
 		Vector2 maxPos = TileIndicesToPos(width - 1, height - 1);
 		float spacingX = (maxPos.x - minPos.x) / treesX;
 		float spacingY = (maxPos.y - minPos.y) / treesY;
-
 		for (int i = 0; i < treesX; i++) {
 			for (int j = 0; j < treesY; j++) {
 				Vector2 randPos = new Vector2 (
@@ -420,32 +470,41 @@ public class HexGrid : MonoBehaviour {
 				randPos.x += Random.Range(-spacingX / 2.0f, spacingX / 2.0f);
 				randPos.y += Random.Range(-spacingY / 2.0f, spacingY / 2.0f);
 				Vector2Int closest = GetClosestTileIndex(randPos);
-				if (tiles [closest.x, closest.y].type == TileType.FOREST) {
+				if (tiles[closest.x, closest.y].type == TileType.FOREST) {
 					GameObject tree = Instantiate (treePrefab,
 						randPos, Quaternion.identity, transform);
-					Animator treeAnimator = tree.GetComponent<Animator> ();
-					treeAnimator.SetInteger ("variation", Random.Range (0, 3));
+					Animator treeAnimator = tree.GetComponent<Animator>();
+					treeAnimator.SetInteger ("variation", Random.Range(0, 3));
+					tiles[closest.x, closest.y].trees.Add(tree);
+				}
+			}
+		}
+		float spacingBldgX = (maxPos.x - minPos.x) / buildingsX;
+		float spacingBldgY = (maxPos.y - minPos.y) / buildingsY;
+		for (int i = 0; i < buildingsX; i++) {
+			for (int j = 0; j < buildingsY; j++) {
+				Vector2 randPos = new Vector2 (
+					Mathf.Lerp(minPos.x, maxPos.x, (float)i / (buildingsX - 1)),
+					Mathf.Lerp(minPos.y, maxPos.y, (float)j / (buildingsY - 1))
+				);
+				randPos.x += Random.Range(-spacingBldgX / 4.0f, spacingBldgX / 4.0f);
+				randPos.y += Random.Range(-spacingBldgY / 4.0f, spacingBldgY / 4.0f);
+				Vector2Int closest = GetClosestTileIndex(randPos);
+				if (tiles[closest.x, closest.y].type == TileType.CITY) {
+					GameObject bldg = Instantiate (buildingPrefab,
+						randPos, Quaternion.identity, transform);
+					Animator bldgAnimator = bldg.GetComponent<Animator>();
+					bldgAnimator.SetInteger("variation", Random.Range(0, 3));
+					tiles[closest.x, closest.y].buildings.Add(bldg);
 				}
 			}
 		}
 
-//		for (int i = 0; i < numTrees; i++) {
-//			Vector2 randPos = new Vector3 (
-//				Random.Range(minPos.x, maxPos.x),
-//				Random.Range(minPos.y, maxPos.y)
-//			);
-//			Vector2Int closest = GetClosestTileIndex(randPos);
-//			if (tiles [closest.x, closest.y].type == TileType.FOREST) {
-//				GameObject tree = Instantiate (treePrefab,
-//					randPos, Quaternion.identity, transform);
-//				Animator treeAnimator = tree.GetComponent<Animator> ();
-//				treeAnimator.SetInteger ("variation", Random.Range (0, 3));
-//			}
-//		}
-
         CreateUnitAt(new Vector2Int(11, 37), UnitType.TEST);
-        CreateUnitAt(new Vector2Int(12, 37), UnitType.TEST);
-        CreateUnitAt(new Vector2Int(12, 38), UnitType.TRUCK);
+		CreateUnitAt(new Vector2Int(12, 37), UnitType.TEST);
+		CreateUnitAt(new Vector2Int(12, 38), UnitType.TRUCK);
+
+		CreateCampAt(new Vector2Int(12, 40));
 
         CreateFireAt(new Vector2Int(11, 31));
         CreateFireAt(new Vector2Int(40, 45));
@@ -644,6 +703,7 @@ public class HexGrid : MonoBehaviour {
                 if (neighborInfo.fire == null
                 && neighborInfo.type != TileType.WATER
 				&& neighborInfo.type != TileType.FIRELINE
+				&& neighborInfo.type != TileType.CITY_FIRELINE
                 && neighborInfo.type != TileType.BURNT) {
                     if (Random.Range(0.0f, 1.0f) < fireSpreadChance) {
                         CreateFireAt(neighbors[i]);
@@ -652,16 +712,24 @@ public class HexGrid : MonoBehaviour {
             }
         }
 
-        List<Vector2Int> deadUnitTiles = new List<Vector2Int>();
-        foreach (Vector2Int tile in unitTiles) {
-            if (tiles[tile.x, tile.y].fire != null) {
-                deadUnitTiles.Add(tile);
-            }
-        }
-
-        foreach (Vector2Int tile in deadUnitTiles) {
-            KillUnitAt(tile);
-        }
+		List<Vector2Int> deadUnitTiles = new List<Vector2Int>();
+		foreach (Vector2Int tile in unitTiles) {
+			if (tiles[tile.x, tile.y].fire != null) {
+				deadUnitTiles.Add(tile);
+			}
+		}
+		foreach (Vector2Int tile in deadUnitTiles) {
+			KillUnitAt(tile);
+		}
+		List<Vector2Int> deadCampTiles = new List<Vector2Int>();
+		foreach (Vector2Int tile in campTiles) {
+			if (tiles[tile.x, tile.y].fire != null) {
+				deadCampTiles.Add(tile);
+			}
+		}
+		foreach (Vector2Int tile in deadCampTiles) {
+			DestroyCampAt(tile);
+		}
 	}
 
 	// Use this for initialization

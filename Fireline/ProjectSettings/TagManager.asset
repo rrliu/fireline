@@ -44,6 +44,9 @@ TagManager:
   - name: Background
     uniqueID: 397326691
     locked: 0
+  - name: Camps
+    uniqueID: 3190481623
+    locked: 0
   - name: Units
     uniqueID: 4217356591
     locked: 0

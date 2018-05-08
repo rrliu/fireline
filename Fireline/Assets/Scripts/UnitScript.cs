@@ -119,7 +119,12 @@ public class UnitScript : MonoBehaviour {
 					}
 				}
 				else if (cmdStep.type == UnitCommandType.DIG) {
-					hexGrid.ChangeTileTypeAt(cmdStep.target, TileType.FIRELINE);
+					TileType tileType = hexGrid.tiles[cmdStep.target.x, cmdStep.target.y].type;
+					if (tileType == TileType.CITY) {
+						hexGrid.ChangeTileTypeAt(cmdStep.target, TileType.CITY_FIRELINE);
+					} else {
+						hexGrid.ChangeTileTypeAt(cmdStep.target, TileType.FIRELINE);
+					}
 				}
 				else if (cmdStep.type == UnitCommandType.EXTINGUISH) {
 					hexGrid.PutOutFireIfExistsAt(cmdStep.target);

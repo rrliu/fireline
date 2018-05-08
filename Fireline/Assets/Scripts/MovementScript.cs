@@ -73,7 +73,8 @@ public class MovementScript : MonoBehaviour {
         TileInfo tileInfo = hexGrid.tiles[tile.x, tile.y];
         if (tileInfo.fire != null
         || tileInfo.type == TileType.WATER
-        || tileInfo.type == TileType.FIRELINE) {
+        || tileInfo.type == TileType.FIRELINE
+		|| tileInfo.type == TileType.CITY_FIRELINE) {
             return false;
         }
 
@@ -145,22 +146,28 @@ public class MovementScript : MonoBehaviour {
 		if (turnScript.playerTurn) {
 			// Click event
 			if (Input.GetMouseButtonDown(0)) {
-				// Debug.Log("You clicked on: " + hovered.ToString());
-                // Debug.Log ("Type: "
-                //     + hoveredTile.type.ToString ());
+//				Debug.Log("You clicked on: " + hovered.ToString());
+//                Debug.Log ("Type: "
+//                    + hoveredTile.type.ToString ());
 
 				// Conditions for selection to be possible
 				if (selected != hovered
 				&& hoveredTile.type != TileType.WATER
-				&& hoveredTile.unit != null) {
+				&& (hoveredTile.unit != null || hoveredTile.camp != null)) {
 					// Select hovered tile
 					selected = hovered;
-					UnitScript unitScript = hexGrid.tiles[selected.x, selected.y].unitScript;
-					float range = unitScript.range;
-					if (range > 0.0f) {
-						neighbors = hexGrid.GetReachableTiles(selected, range, unitScript.type);
-					} else {
-						neighbors = null;
+					if (hoveredTile.unit != null) {
+						UnitScript unitScript = hexGrid.tiles [selected.x, selected.y].unitScript;
+						float range = unitScript.range;
+						if (range > 0.0f) {
+							neighbors = hexGrid.GetReachableTiles (selected, range, unitScript.type);
+						} else {
+							neighbors = null;
+						}
+					} else if (hoveredTile.camp != null) {
+						Debug.Log("show menu here");
+						hexGrid.CreateUnitAt(selected, UnitType.TEST);
+						selected = noSelection;
 					}
                 } else if (selected == hovered
                 && hexGrid.tiles[selected.x, selected.y].unit != null) {
