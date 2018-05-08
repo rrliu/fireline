@@ -3,7 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-static class OrderHelper {
+static class OrderHelper
+{
     // is v > w ?
     internal static bool Greater<T>(T v, T w) where T : IComparable<T> {
         return v.CompareTo(w) > 0;
@@ -21,7 +22,7 @@ static class OrderHelper {
         a[j] = swap;
     }
 
-    // exchange a[i] and a[j] 
+    // exchange a[i] and a[j]
     internal static void Exch<T>(T[] a, int i, int j) {
         T swap = a[i];
         a[i] = a[j];
@@ -29,12 +30,18 @@ static class OrderHelper {
     }
 }
 
-public class IndexMinPQ<Key> : IEnumerable<int> where Key : IComparable<Key> {
-    private int maxN;   // maximum number of elements on PQ
-    private int N;      // number of elements on PQ
-    private int[] pq;   // binary heap using 1-based indexing
-    private int[] qp;   // inverse of pq: qp[pq[i]] = pq[qp[i]] = i
-    private Key[] keys; // keys[i] = priority of i
+public class IndexMinPQ<Key> : IEnumerable<int> where Key : IComparable<Key>
+{
+    private int maxN;
+    // maximum number of elements on PQ
+    private int N;
+    // number of elements on PQ
+    private int[] pq;
+    // binary heap using 1-based indexing
+    private int[] qp;
+    // inverse of pq: qp[pq[i]] = pq[qp[i]] = i
+    private Key[] keys;
+    // keys[i] = priority of i
 
     /// <summary>Initializes an empty indexed priority queue with indices between <c>0</c>
     /// and <c>maxN - 1</c>.</summary>
@@ -119,7 +126,8 @@ public class IndexMinPQ<Key> : IEnumerable<int> where Key : IComparable<Key> {
     ///
     public int MinIndex {
         get {
-            if (IsEmpty) throw new InvalidOperationException("Priority queue underflow");
+            if (IsEmpty)
+                throw new InvalidOperationException("Priority queue underflow");
             return pq[1];
         }
     }
@@ -324,6 +332,7 @@ public class IndexMinPQ<Key> : IEnumerable<int> where Key : IComparable<Key> {
         return sb.ToString();
 
     }
+
     /// <summary>
     /// Returns an iterator that iterates over the keys on this priority queue
     /// in ascending order.</summary>
@@ -336,7 +345,8 @@ public class IndexMinPQ<Key> : IEnumerable<int> where Key : IComparable<Key> {
         return this.GetEnumerator();
     }
 
-    private class HeapIEnumerator : IEnumerator<int> {
+    private class HeapIEnumerator : IEnumerator<int>
+    {
         // create a new pq
         private IndexMinPQ<Key> copy;
         private IndexMinPQ<Key> innerPQ;
@@ -392,7 +402,18 @@ public class IndexMinPQ<Key> : IEnumerable<int> where Key : IComparable<Key> {
     /// 
     public static void MainTest(string[] args) {
         // insert a bunch of strings
-        string[] strings = { "it", "was", "the", "best", "of", "times", "it", "was", "the", "worst" };
+        string[] strings = {
+            "it",
+            "was",
+            "the",
+            "best",
+            "of",
+            "times",
+            "it",
+            "was",
+            "the",
+            "worst"
+        };
 
         IndexMinPQ<string> pq = new IndexMinPQ<string>(strings.Length);
         for (int i = 0; i < strings.Length; i++) {
