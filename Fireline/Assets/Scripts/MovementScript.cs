@@ -4,6 +4,7 @@ using UnityEngine;
 
 [RequireComponent(typeof(HexGrid))]
 [RequireComponent(typeof(TurnScript))]
+[RequireComponent(typeof(GeneratorScript))]
 public class MovementScript : MonoBehaviour {
 	public Color hoveredColor;
 	public Color selectedColor;
@@ -15,6 +16,7 @@ public class MovementScript : MonoBehaviour {
 
 	HexGrid hexGrid;
 	TurnScript turnScript;
+	GeneratorScript generatorScript; 
 
 	Vector2Int noSelection = new Vector2Int(-1, -1);
 	Vector2Int selected;
@@ -123,11 +125,15 @@ public class MovementScript : MonoBehaviour {
 	void Start () {
 		hexGrid = GetComponent<HexGrid>();
 		turnScript = GetComponent<TurnScript>();
+		generatorScript = GetComponent<GeneratorScript>();
 		selected = noSelection;
 	}
 	
 	// Update is called once per frame
 	void Update () {
+		if (!generatorScript.loaded) {
+			return;
+		}
 		// Clear all tile colors.
 		// If you want a tile to stay colored, you must set it every frame
 		hexGrid.ClearTileColors();

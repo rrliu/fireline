@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class GeneratorScript : MonoBehaviour {
 	public Vector2Int start;
@@ -16,7 +17,11 @@ public class GeneratorScript : MonoBehaviour {
     public float cityThreshold;
 	public GameObject background;
 
+	public Text loadingText;
+
     public bool cache;
+
+	[HideInInspector] public bool loaded = false;
 
 	bool[,] GenerateSingleTileMask(Sprite sprite, Vector2Int start,
     int radius, float avgThreshold) {
@@ -95,15 +100,25 @@ public class GeneratorScript : MonoBehaviour {
         return tileTypes;
     }
 
-    const string CACHE_PATH = "Assets/SaveData/tiles.data";
-    void CacheTiles(TileType[,] tileTypes) {
+	const string CACHE_PATH = "Assets/Resources/tiles.txt";
+
+	TileType[,] LoadTilesRelease() {
+		TextAsset asset = Resources.Load("tiles") as TextAsset;
+		Stream s = new MemoryStream(asset.bytes);
+		BinaryFormatter bf = new BinaryFormatter();
+		TileType[,] tileTypes = (TileType[,])bf.Deserialize(s);
+
+		return tileTypes;
+	}
+
+    void CacheTilesEditor(TileType[,] tileTypes) {
         BinaryFormatter bf = new BinaryFormatter();
         FileStream fs = File.Open(CACHE_PATH, FileMode.Create);
         bf.Serialize(fs, tileTypes);
         fs.Close();
         Debug.Log("Cached tile info");
     }
-    TileType[,] LoadTiles() {
+    TileType[,] LoadTilesEditor() {
         BinaryFormatter bf = new BinaryFormatter();
         FileStream fs = File.Open(CACHE_PATH, FileMode.Open);
         TileType[,] tileTypes = (TileType[,])bf.Deserialize(fs);
@@ -115,15 +130,22 @@ public class GeneratorScript : MonoBehaviour {
 	// Use this for initialization
 	void Start () {
         TileType[,] tileTypes;
-        if (cache && File.Exists(CACHE_PATH)) {
-            tileTypes = LoadTiles();
-            Debug.Log("Loaded tile info from cache");
-        }
-        else {
-            tileTypes = GenerateTiles();
-            Debug.Log("Generated tile info");
-        }
-        CacheTiles(tileTypes);
+		#if UNITY_EDITOR
+		if (cache && File.Exists(CACHE_PATH)) {
+			tileTypes = LoadTilesEditor();
+			Debug.Log("Loaded tile info from cache");
+		}
+		else {
+			tileTypes = GenerateTiles();
+			Debug.Log("Generated tile info");
+		}
+		CacheTilesEditor(tileTypes);
+		#else
+		tileTypes = LoadTilesRelease();
+		#endif
+
+		//loadingText.text = "D O N E";
+		loaded = true;
 
 		HexGrid hexGrid = gameObject.GetComponent<HexGrid>();
 		hexGrid.GenerateGrid (tileTypes);

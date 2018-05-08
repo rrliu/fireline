@@ -53,10 +53,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 347b8aa8db8a44d0592c4229aa6fa14f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  unitType: 0
+  type: 0
   range: 4
   rangeRemaining: 0
   tile: {x: 0, y: 0}
+  doneMoving: 1
 --- !u!120 &120961459536372914
 LineRenderer:
   m_ObjectHideFlags: 1
@@ -88,9 +89,9 @@ LineRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingLayerID: -77610705
+  m_SortingLayer: 2
+  m_SortingOrder: 100
   m_Positions:
   - {x: 0, y: 0, z: 0}
   - {x: 0, y: 0, z: 0}
