@@ -114,7 +114,12 @@ public class HexGrid : MonoBehaviour
                     tiles[i, j].outlineRenderer.endColor = waterOutlineColor;
                     tiles[i, j].outlineRenderer.widthMultiplier =
                     defaultOutlineWidth * 2.0f;
-                }
+				}
+
+				// Hacky thing to remove ugly lines at the edge of water
+				if (i == 0) {
+					tiles[i, j].spriteRenderer.color = Color.clear;
+				}
             }
         }
     }
@@ -515,11 +520,6 @@ public class HexGrid : MonoBehaviour
                     && enabledMin.y <= j && j < enabledMin.y + enabledSize.y) {
                     tiles[i, j].disabled = false;
                 }
-                /*if (tileType == TileType.FOREST) {
-                    if (Random.Range(0.0f, 1.0f) < 0.05f) {
-                        CreateFireAt(new Vector2Int(i, j));
-                    }
-                }*/
             }
         }
 

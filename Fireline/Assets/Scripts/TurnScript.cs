@@ -15,6 +15,7 @@ public class TurnScript : MonoBehaviour
     public int money;
 	public int moneySpent = 0;
     public GameObject placeCampsPrompt;
+	public GameObject sideInstructions;
 	public GameObject endPopup;
     [HideInInspector] public bool playerTurn;
 
@@ -44,6 +45,7 @@ public class TurnScript : MonoBehaviour
         placeCampsPrompt.SetActive(false);
 
         moneyText.transform.parent.gameObject.SetActive(true);
+		sideInstructions.SetActive(true);
         UpdateMoneyText();
         UpdateIncomeText(CalcIncome());
         playerTurn = true;
@@ -153,16 +155,16 @@ public class TurnScript : MonoBehaviour
 			const int HOMES_PER_TILE = 147;
 			int homesBurnt = hexGrid.burntCities * HOMES_PER_TILE;
 			int homesDestroyed = cityFirelineTiles * HOMES_PER_TILE;
-			const int SQ_MILES_PER_TILE = 3;
-			int forestsBurnt = hexGrid.burntForests * SQ_MILES_PER_TILE;
-			int forestsDestroyed = hexGrid.destroyedForests * SQ_MILES_PER_TILE;
+			const int ACRES_PER_TILE = 1920;
+			int forestsBurnt = hexGrid.burntForests * ACRES_PER_TILE;
+			int forestsDestroyed = hexGrid.destroyedForests * ACRES_PER_TILE;
 			const int PEOPLE_PER_UNIT = 13;
 			int casualties = hexGrid.casualties * PEOPLE_PER_UNIT;
 			//int moneySpent = moneySpent;
 			statValues.text = homesBurnt + "\n\n"
 				+ homesDestroyed + "\n\n\n"
-				+ forestsBurnt + " sq mi\n\n"
-				+ forestsDestroyed + " sq mi\n\n\n"
+				+ forestsBurnt + "\n\n"
+				+ forestsDestroyed + "\n\n\n"
 				+ casualties + "\n\n"
 				+ "$ " + moneySpent;
 		}
