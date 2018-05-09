@@ -22,6 +22,9 @@ public class GeneratorScript : MonoBehaviour
 
 	public GameObject mainMenu;
 
+	public AudioSource menuMusic;
+	public AudioSource gameMusic;
+
     public bool cache;
 
     [HideInInspector] public bool loaded = false;
@@ -147,8 +150,10 @@ public class GeneratorScript : MonoBehaviour
         #endif
 
         HexGrid hexGrid = gameObject.GetComponent<HexGrid>();
-        hexGrid.GenerateGrid(tileTypes, level);
+		hexGrid.GenerateGrid(tileTypes, level);
 		mainMenu.SetActive(false);
+		menuMusic.Stop();
+		gameMusic.Play();
 
         int pixWidth = rivers.texture.width;
         int pixHeight = rivers.texture.height;
