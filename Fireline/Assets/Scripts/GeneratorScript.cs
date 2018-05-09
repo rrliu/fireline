@@ -20,6 +20,8 @@ public class GeneratorScript : MonoBehaviour
     public float cityThreshold;
     public GameObject background;
 
+	public GameObject mainMenu;
+
     public bool cache;
 
     [HideInInspector] public bool loaded = false;
@@ -129,7 +131,7 @@ public class GeneratorScript : MonoBehaviour
         return tileTypes;
     }
 
-    void LoadGame() {
+	public void LoadGame(int level) {
         TileType[,] tileTypes;
         #if UNITY_EDITOR
         if (cache && File.Exists(CACHE_PATH)) {
@@ -145,7 +147,8 @@ public class GeneratorScript : MonoBehaviour
         #endif
 
         HexGrid hexGrid = gameObject.GetComponent<HexGrid>();
-        hexGrid.GenerateGrid(tileTypes);
+        hexGrid.GenerateGrid(tileTypes, level);
+		mainMenu.SetActive(false);
 
         int pixWidth = rivers.texture.width;
         int pixHeight = rivers.texture.height;
@@ -166,14 +169,30 @@ public class GeneratorScript : MonoBehaviour
         background.SetActive(true);
 
         TurnScript turnScript = gameObject.GetComponent<TurnScript>();
-        StartCoroutine(turnScript.PlaceCamps());
+        StartCoroutine(turnScript.PlaceCamps(level));
+		if (level == 1) {
+			turnScript.money = 500 * level;
+		} else if (level == 2) {
+			turnScript.money = 500 * level;
+		} else if (level == 3) {
+			turnScript.money = 2000;
+		}
 
         loaded = true;
     }
 
+	public void LoadLevel1() {
+		LoadGame(1);
+	}
+	public void LoadLevel2() {
+		LoadGame(2);
+	}
+	public void LoadLevel3() {
+		LoadGame(3);
+	}
+
     // Use this for initialization
     void Start() {
-        LoadGame();
     }
 	
     // Update is called once per frame

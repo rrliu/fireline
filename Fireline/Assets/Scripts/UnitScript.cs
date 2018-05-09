@@ -141,9 +141,9 @@ public class UnitScript : MonoBehaviour
             transform.position = hexGrid.TileIndicesToPos(currentUnitTile.x, currentUnitTile.y);
         }
         if (!isDead) {
-            if (hexGrid.tiles[currentUnitTile.x, currentUnitTile.y].unit != null) {
+            if (hexGrid.tiles[currentUnitTile.x, currentUnitTile.y].unit != null
+			&& tile != currentUnitTile) {
                 // Unit in destination tile already: move to the closest tile (YOLO)
-                Debug.Log("occupied end tile, recalculating...");
                 List<TileNode> neighbors = hexGrid.GetReachableTiles(currentUnitTile, 3.0f, type);
                 float minDist = float.PositiveInfinity;
                 int minTileInd = -1;
@@ -157,7 +157,6 @@ public class UnitScript : MonoBehaviour
                 hexGrid.MoveUnit(tile, neighbors[minTileInd].coords);
             }
             else {
-                Debug.Log("moved unit");
                 hexGrid.MoveUnit(tile, currentUnitTile);
             }
         }

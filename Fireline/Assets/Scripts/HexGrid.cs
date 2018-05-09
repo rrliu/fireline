@@ -81,6 +81,11 @@ public class HexGrid : MonoBehaviour
     [HideInInspector] public List<Vector2Int> campTiles = new List<Vector2Int>();
     [HideInInspector] public List<Vector2Int> onFire = new List<Vector2Int>();
 
+	[HideInInspector] public int burntCities = 0;
+	[HideInInspector] public int burntForests = 0;
+	[HideInInspector] public int destroyedForests = 0;
+	[HideInInspector] public int casualties = 0;
+
     Color defaultOutlineColor;
     float defaultOutlineWidth;
     TurnScript turnScript;
@@ -324,6 +329,9 @@ public class HexGrid : MonoBehaviour
     public void ChangeTileTypeAt(Vector2Int tile, TileType newType) {
         DebugValidateTileIndex(tile);
         int i = tile.x, j = tile.y;
+		if (tiles[i, j].type == TileType.FOREST && newType == TileType.FIRELINE) {
+			destroyedForests++;
+		}
         tiles[i, j].type = newType;
         tiles[i, j].spriteRenderer.sprite = tileSprites[(int)newType];
 
@@ -386,6 +394,7 @@ public class HexGrid : MonoBehaviour
         tiles[i, j].unit = null;
         unitTiles.Remove(tile);
         deathSplat.SetTrigger("splat");
+		casualties++;
     }
 
     public void CreateCampAt(Vector2Int tile) {
@@ -422,7 +431,13 @@ public class HexGrid : MonoBehaviour
     public void PutOutFireIfExistsAt(Vector2Int tile) {
         DebugValidateTileIndex(tile);
         int i = tile.x, j = tile.y;
-        if (tiles[i, j].fire != null) {
+		if (tiles[i, j].fire != null) {
+			if (tiles[i, j].type == TileType.CITY) {
+				burntCities++;
+			}
+			if (tiles[i, j].type == TileType.FOREST) {
+				burntForests++;
+			}
             ChangeTileTypeAt(tile, TileType.BURNT);
             Destroy(tiles[i, j].fire);
             tiles[i, j].fire = null;
@@ -438,7 +453,7 @@ public class HexGrid : MonoBehaviour
         }
     }
 
-    public void GenerateGrid(TileType[,] tileTypes) {
+	public void GenerateGrid(TileType[,] tileTypes, int level) {
         int width = tileTypes.GetLength(0);
         int height = tileTypes.GetLength(1);
 
@@ -560,8 +575,19 @@ public class HexGrid : MonoBehaviour
 
         //CreateCampAt(new Vector2Int(12, 40));
 
-        CreateFireAt(new Vector2Int(8, 35));
-        CreateFireAt(new Vector2Int(18, 40));
+		if (level == 1) {
+			CreateFireAt(new Vector2Int(18, 37));
+		}
+		else if (level == 2) {
+			CreateFireAt(new Vector2Int(8, 35));
+			CreateFireAt(new Vector2Int(18, 40));
+		}
+		else if (level == 3) {
+			CreateFireAt(new Vector2Int(8, 34));
+			CreateFireAt(new Vector2Int(6, 37));
+			CreateFireAt(new Vector2Int(18, 33));
+			CreateFireAt(new Vector2Int(18, 41));
+		}
     }
 
     Vector2Int[] GetNeighbors(Vector2Int node) {

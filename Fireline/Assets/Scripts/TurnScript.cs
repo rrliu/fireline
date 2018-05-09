@@ -13,17 +13,23 @@ public class TurnScript : MonoBehaviour
     public Text moneyText;
     public Text incomeText;
     public int money;
+	public int moneySpent = 0;
     public GameObject placeCampsPrompt;
+	public GameObject endPopup;
     [HideInInspector] public bool playerTurn;
 
     HexGrid hexGrid;
 	MovementScript movementScript;
     bool turnTransition = false;
 
-    public IEnumerator PlaceCamps() {
+	public IEnumerator PlaceCamps(int level) {
         placeCampsPrompt.SetActive(true);
         int campsPlaced = 0;
-        while (campsPlaced < 2) {
+		int totalCamps = 2;
+		if (level == 3) {
+			totalCamps = level;
+		}
+		while (campsPlaced < totalCamps) {
             Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
             Vector2Int hovered = hexGrid.GetClosestTileIndex(mousePos);
             TileInfo hoveredTile = hexGrid.tiles[hovered.x, hovered.y];
@@ -119,11 +125,57 @@ public class TurnScript : MonoBehaviour
 
         UpdateIncomeText(CalcIncome());
 
+		// Check if all fires are out
+		int tileWidth = hexGrid.tiles.GetLength(0);
+		int tileHeight = hexGrid.tiles.GetLength(1);
+		int cityFirelineTiles = 0;
+		bool fireGone = true;
+		for (int i = 0; i < tileWidth; i++) {
+			for (int j = 0; j < tileHeight; j++) {
+				TileInfo tileInfo = hexGrid.tiles[i, j];
+				if (tileInfo.fire != null) {
+					fireGone = false;
+					break;
+				}
+				if (tileInfo.type == TileType.CITY_FIRELINE) {
+					cityFirelineTiles++;
+				}
+			}
+		}
+		if (fireGone) {
+			// display statistics
+			playerTurn = false;
+			turnTransition = true;
+			endPopup.SetActive(true);
+			Text statValues = endPopup.transform.Find("Panel/StatValues")
+				.gameObject.GetComponent<Text>();
+
+			const int HOMES_PER_TILE = 147;
+			int homesBurnt = hexGrid.burntCities * HOMES_PER_TILE;
+			int homesDestroyed = cityFirelineTiles * HOMES_PER_TILE;
+			const int SQ_MILES_PER_TILE = 3;
+			int forestsBurnt = hexGrid.burntForests * SQ_MILES_PER_TILE;
+			int forestsDestroyed = hexGrid.destroyedForests * SQ_MILES_PER_TILE;
+			const int PEOPLE_PER_UNIT = 13;
+			int casualties = hexGrid.casualties * PEOPLE_PER_UNIT;
+			//int moneySpent = moneySpent;
+			statValues.text = homesBurnt + "\n\n"
+				+ homesDestroyed + "\n\n\n"
+				+ forestsBurnt + " sq mi\n\n"
+				+ forestsDestroyed + " sq mi\n\n\n"
+				+ casualties + "\n\n"
+				+ "$ " + moneySpent;
+		}
+
         nextTurnText.SetActive(false);
         playerTurn = true;
         StartPlayerTurn();
         turnTransition = false;
     }
+
+	public void ReturnToMenu() {
+		SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+	}
 
     // Use this for initialization
     void Start() {
@@ -135,11 +187,12 @@ public class TurnScript : MonoBehaviour
     void Update() {
         if (Input.GetKeyDown(KeyCode.R)) {
             // Reload the game
-            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+			ReturnToMenu();
         }
         if (Input.GetKeyDown(KeyCode.Space)
 		&& playerTurn && !turnTransition
 		&& !movementScript.popup) {
+			playerTurn = false;
             StartCoroutine(NextTurnCoroutine());
         }
     }

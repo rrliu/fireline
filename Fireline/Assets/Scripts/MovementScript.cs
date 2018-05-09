@@ -174,6 +174,7 @@ public class MovementScript : MonoBehaviour
         if (turnScript.money >= cost) {
             hexGrid.CreateUnitAt(tile, unitType);
             turnScript.money -= cost;
+			turnScript.moneySpent += cost;
             turnScript.UpdateMoneyText();
         }
         else {
