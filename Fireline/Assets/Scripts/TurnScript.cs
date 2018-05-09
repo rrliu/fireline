@@ -5,6 +5,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(HexGrid))]
+[RequireComponent(typeof(MovementScript))]
 public class TurnScript : MonoBehaviour
 {
     public GameObject nextTurnText;
@@ -16,6 +17,7 @@ public class TurnScript : MonoBehaviour
     [HideInInspector] public bool playerTurn;
 
     HexGrid hexGrid;
+	MovementScript movementScript;
     bool turnTransition = false;
 
     public IEnumerator PlaceCamps() {
@@ -126,6 +128,7 @@ public class TurnScript : MonoBehaviour
     // Use this for initialization
     void Start() {
         hexGrid = GetComponent<HexGrid>();
+		movementScript = GetComponent<MovementScript>();
     }
 	
     // Update is called once per frame
@@ -134,7 +137,9 @@ public class TurnScript : MonoBehaviour
             // Reload the game
             SceneManager.LoadScene(SceneManager.GetActiveScene().name);
         }
-        if (Input.GetKeyDown(KeyCode.Space) && playerTurn && !turnTransition) {
+        if (Input.GetKeyDown(KeyCode.Space)
+		&& playerTurn && !turnTransition
+		&& !movementScript.popup) {
             StartCoroutine(NextTurnCoroutine());
         }
     }

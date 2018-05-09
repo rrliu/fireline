@@ -759,12 +759,19 @@ public class HexGrid : MonoBehaviour
             Vector2Int[] neighbors = GetNeighbors(tile);
             for (int i = 0; i < neighbors.Length; i++) {
                 TileInfo neighborInfo = tiles[neighbors[i].x, neighbors[i].y];
+				bool truck = false;
+				if (neighborInfo.unit != null) {
+					if (neighborInfo.unitScript.type == UnitType.TRUCK) {
+						truck = true;
+					}
+				}
                 if (neighborInfo.fire == null
                     && !neighborInfo.disabled
                     && neighborInfo.type != TileType.WATER
                     && neighborInfo.type != TileType.FIRELINE
                     && neighborInfo.type != TileType.CITY_FIRELINE
-                    && neighborInfo.type != TileType.BURNT) {
+                    && neighborInfo.type != TileType.BURNT
+					&& !truck) {
                     if (Random.Range(0.0f, 1.0f) < fireSpreadChance) {
                         CreateFireAt(neighbors[i]);
                     }

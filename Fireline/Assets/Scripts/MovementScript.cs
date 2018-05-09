@@ -17,6 +17,11 @@ public class MovementScript : MonoBehaviour
     public Color unitLineColorFocus;
 
     public GameObject buyUnitMenu;
+	public GameObject warningPopup;
+
+	[HideInInspector] public bool popup = false;
+	UnitCommand popupDig;
+	UnitScript popupUnitScript;
 
     HexGrid hexGrid;
     TurnScript turnScript;
@@ -194,6 +199,16 @@ public class MovementScript : MonoBehaviour
         neighbors = null;
     }
 
+	public void WarningPopupYes() {
+		popupUnitScript.SubmitCommand(popupDig);
+		warningPopup.SetActive(false);
+		popup = false;
+	}
+	public void WarningPopupNo() {
+		warningPopup.SetActive(false);
+		popup = false;
+	}
+
     // Use this for initialization
     void Start() {
         hexGrid = GetComponent<HexGrid>();
@@ -214,6 +229,9 @@ public class MovementScript : MonoBehaviour
         if (buyMenu) {
             return;
         }
+		if (popup) {
+			return;
+		}
 
         Vector2 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         Vector2Int hovered = hexGrid.GetClosestTileIndex(mousePos);
@@ -236,6 +254,7 @@ public class MovementScript : MonoBehaviour
                         UnitScript unitScript = hexGrid.tiles[selected.x, selected.y].unitScript;
                         float range = unitScript.range;
                         if (range > 0.0f) {
+							ClearNeighbors();
                             neighbors = hexGrid.GetReachableTiles(selected, range, unitScript.type);
                         }
                         else {
@@ -279,10 +298,18 @@ public class MovementScript : MonoBehaviour
                 else if (Input.GetMouseButtonDown(1)) {
                     // Determine whether the unit can dig the target tile
                     if (IsTileDiggable(hovered, selected)) {
-                        UnitCommand digCommand;
-                        digCommand.type = UnitCommandType.DIG;
-                        digCommand.target = hovered;
-                        unitTile.unitScript.SubmitCommand(digCommand);
+						if (hexGrid.tiles[hovered.x, hovered.y].type == TileType.CITY) {
+							warningPopup.SetActive(true);
+							popup = true;
+							popupDig.type = UnitCommandType.DIG;
+							popupDig.target = hovered;
+							popupUnitScript = unitTile.unitScript;
+						} else {
+							UnitCommand digCommand;
+							digCommand.type = UnitCommandType.DIG;
+							digCommand.target = hovered;
+							unitTile.unitScript.SubmitCommand(digCommand);
+						}
                     }
                     if (IsTileTruckable(hovered, selected)) {
                         UnitCommand extinguishCommand;
